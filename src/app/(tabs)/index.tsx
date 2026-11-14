@@ -9,6 +9,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth-context';
@@ -21,6 +22,7 @@ import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
 
 export default function TabIndexScreen() {
+  const insets = useSafeAreaInsets();
   const { session, permissions } = useAuth();
   const {
     orders,
@@ -141,11 +143,22 @@ export default function TabIndexScreen() {
 
     return (
       <View style={[styles.root, { backgroundColor: isDark ? colors.background : '#FDF8F5' }]}>
-        <DemoBanner />
-
         {/* 1. Golden Moment.in CRM Top Bar */}
-        <View style={[styles.crmHeaderBar, { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderBottomColor: isDark ? colors.border : '#F3E8E2' }]}>
-          <View style={styles.brandContainer}>
+        <View
+          style={[
+            styles.crmHeaderBar,
+            {
+              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              borderBottomColor: isDark ? colors.border : '#F3E8E2',
+              paddingTop: Math.max(insets.top, 12),
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.brandContainer}
+            onPress={() => router.push('/profile')}
+            activeOpacity={0.8}
+          >
             <View style={styles.brandAvatar}>
               <Text style={styles.brandAvatarText}>G</Text>
             </View>
@@ -157,7 +170,7 @@ export default function TabIndexScreen() {
                 <Text style={styles.crmBadgeText}>CRM</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.headerRightActions}>
             {/* Credits Wallet Pill */}
@@ -315,8 +328,18 @@ export default function TabIndexScreen() {
                     { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: isDark ? colors.border : '#E5E7EB' },
                   ]}
                 >
-                  {/* Distinctive Orange Date Header Banner */}
-                  <View style={styles.dateHeaderBanner}>
+                  {/* Distinctive Orange / Rose Date Header Banner */}
+                  <View
+                    style={[
+                      styles.dateHeaderBanner,
+                      {
+                        backgroundColor:
+                          group.dayOfWeek === 'WED' || group.dayNum === '11' || group.dayNum === '18'
+                            ? '#C97A6B'
+                            : '#EA580C',
+                      },
+                    ]}
+                  >
                     <Text style={styles.dateHeaderTitle}>
                       {group.dayNum} {group.dayOfWeek} •
                     </Text>

@@ -6,7 +6,8 @@ import { AuthProvider, useAuth } from '@/context/auth-context';
 import { DemoStoreProvider } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
 
-SplashScreen.preventAutoHideAsync();
+// Allow splash screen to hide naturally
+SplashScreen.hideAsync().catch(() => {});
 
 function RootNavigator() {
   const { colors } = useTheme();

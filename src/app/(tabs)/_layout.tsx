@@ -25,6 +25,7 @@ export default function TabLayout() {
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: colors.surface,
         },
@@ -35,14 +36,15 @@ export default function TabLayout() {
         headerShadowVisible: false,
       }}
     >
-      {/* Tab 1: Index / Overview / My Work / My Shoots */}
+      {/* Tab 1: Index / Home / My Work / My Shoots */}
       <Tabs.Screen
         name="index"
         options={{
-          title: isAgent ? 'My Shoots' : isEditor ? 'My Work' : 'Overview',
+          headerShown: false,
+          title: isAgent ? 'My Shoots' : isEditor ? 'My Work' : 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons
-              name={isAgent ? 'camera-outline' : isEditor ? 'film-outline' : 'grid-outline'}
+              name={isAgent ? 'camera-outline' : isEditor ? 'film-outline' : 'home-outline'}
               size={size}
               color={String(color)}
             />
@@ -66,15 +68,15 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 3: Schedule (Operations) OR My Pay (Agent) OR My Payments (Editor) */}
+      {/* Tab 3: Assign / Schedule (Operations) OR My Pay (Agent) OR My Payments (Editor) */}
       <Tabs.Screen
         name="schedule"
         options={{
-          title: isAgent ? 'My Pay' : isEditor ? 'My Payouts' : 'Schedule',
+          title: isAgent ? 'My Pay' : isEditor ? 'My Payouts' : 'Assign',
           href: isAgent || (isEditor ? canSeePayments : canSeeSchedule) ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons
-              name={isAgent || isEditor ? 'cash-outline' : 'calendar-outline'}
+              name={isAgent || isEditor ? 'cash-outline' : 'clipboard-outline'}
               size={size}
               color={String(color)}
             />
@@ -82,14 +84,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 4: Work (Editing coordination in Operations) */}
+      {/* Tab 4: Team / Work (Editing coordination & Crew in Operations) */}
       <Tabs.Screen
         name="work"
         options={{
-          title: 'Workload',
+          title: 'Team',
           href: isOperations && canSeeWork ? undefined : null,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="layers-outline" size={size} color={String(color)} />
+            <Ionicons name="people-outline" size={size} color={String(color)} />
           ),
         }}
       />

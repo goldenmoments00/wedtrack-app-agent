@@ -274,8 +274,8 @@ export function FloatingTabBar({
                   iconName = 'film-outline';
                   activeIconName = 'film';
                 } else {
-                  iconName = 'grid-outline';
-                  activeIconName = 'grid';
+                  iconName = 'home-outline';
+                  activeIconName = 'home';
                 }
               } else if (route.name === 'orders') {
                 if (session?.activeWorkspace === 'SHOOTS') {
@@ -290,12 +290,12 @@ export function FloatingTabBar({
                   iconName = 'cash-outline';
                   activeIconName = 'cash';
                 } else {
-                  iconName = 'calendar-outline';
-                  activeIconName = 'calendar';
+                  iconName = 'clipboard-outline';
+                  activeIconName = 'clipboard';
                 }
               } else if (route.name === 'work') {
-                iconName = 'layers-outline';
-                activeIconName = 'layers';
+                iconName = 'people-outline';
+                activeIconName = 'people';
               } else if (route.name === 'more') {
                 iconName = 'ellipsis-horizontal-outline';
                 activeIconName = 'ellipsis-horizontal';
