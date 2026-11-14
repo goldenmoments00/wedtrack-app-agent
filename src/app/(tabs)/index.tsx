@@ -29,9 +29,12 @@ export default function TabIndexScreen() {
     payroll,
     claimTask,
   } = useDemoStore();
-  const { colors, typography, spacing, radii } = useTheme();
+  const { colors, typography, spacing, radii, isDark } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('NOV 26');
+  const [filterMode, setFilterMode] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'COMPLETED'>('ALL');
+  const [showFinancials, setShowFinancials] = useState(false);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -41,16 +44,12 @@ export default function TabIndexScreen() {
   const workspace = session?.activeWorkspace || 'OPERATIONS';
 
   // ----------------------------------------------------
-  // 1. OPERATIONS DASHBOARD (Admin / Owner / Manager)
+  // 1. OPERATIONS DASHBOARD (Golden Moment.in Event Schedule)
   // ----------------------------------------------------
   if (workspace === 'OPERATIONS') {
     const totalBookings = orders.length;
-    const pendingBookings = orders.filter(o => o.status === 'PENDING').length;
-    const confirmedBookings = orders.filter(o => o.status === 'CONFIRMED' || o.status === 'ASSIGNED').length;
-    const inProgressBookings = orders.filter(o => o.status === 'IN_PROGRESS').length;
-    const completedBookings = orders.filter(o => o.status === 'COMPLETED').length;
 
-    // Staffing gaps: events that have unassigned status or photographers/videographers needed > assignments
+    // Staffing gaps
     const staffingGaps = events.filter(e => {
       const pAssigned = e.assignments.filter(a => a.role === 'PHOTOGRAPHER').length;
       const vAssigned = e.assignments.filter(a => a.role === 'VIDEOGRAPHER').length;
@@ -79,213 +78,496 @@ export default function TabIndexScreen() {
     const totalCost = totalCrewCost + totalEditorCost;
     const totalMargin = totalRevenue - totalCost;
 
+    // Months carousel
+    const months = [
+      { key: 'OCT 26', label: 'OCT 26', count: 16 },
+      { key: 'NOV 26', label: 'NOV 26', count: 108 },
+      { key: 'DEC 26', label: 'DEC 26', count: 93 },
+      { key: 'JAN 27', label: 'JAN 27', count: 42 },
+      { key: 'FEB 27', label: 'FEB 27', count: 55 },
+    ];
+
+    // Filter events by selected status
+    const filteredEvents = events.filter(e => {
+      const isAssigned = e.status === 'ASSIGNED' || e.assignments.length > 0;
+      const isCompleted = e.status === 'COMPLETED';
+
+      if (filterMode === 'ASSIGNED') return isAssigned && !isCompleted;
+      if (filterMode === 'UNASSIGNED') return !isAssigned;
+      if (filterMode === 'COMPLETED') return isCompleted;
+      return true;
+    });
+
+    // Group events by Day (e.g. "07 SAT", "08 SUN", "15 SUN", "18 WED")
+    const dateGroups: {
+      dateKey: string;
+      dayNum: string;
+      dayOfWeek: string;
+      events: typeof events;
+    }[] = [];
+
+    filteredEvents.forEach(evt => {
+      const d = new Date(evt.startTime);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+      const dayOfWeek = days[d.getDay()];
+
+      let group = dateGroups.find(g => g.dateKey === dateKey);
+      if (!group) {
+        group = { dateKey, dayNum, dayOfWeek, events: [] };
+        dateGroups.push(group);
+      }
+      group.events.push(evt);
+    });
+
+    // Sort ascending by date
+    dateGroups.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+    // Time helper
+    const formatEventTime = (isoString: string) => {
+      try {
+        const d = new Date(isoString);
+        let hours = d.getUTCHours();
+        const mins = String(d.getUTCMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${hours}:${mins} ${ampm}`;
+      } catch {
+        return '12:00 PM';
+      }
+    };
+
     return (
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.root, { backgroundColor: isDark ? colors.background : '#FDF8F5' }]}>
         <DemoBanner />
+
+        {/* 1. Golden Moment.in CRM Top Bar */}
+        <View style={[styles.crmHeaderBar, { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderBottomColor: isDark ? colors.border : '#F3E8E2' }]}>
+          <View style={styles.brandContainer}>
+            <View style={styles.brandAvatar}>
+              <Text style={styles.brandAvatarText}>G</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+              <Text style={[styles.brandTitle, { color: isDark ? '#FFFFFF' : '#1F2937' }]}>
+                Golden Moment.in
+              </Text>
+              <View style={styles.crmBadge}>
+                <Text style={styles.crmBadgeText}>CRM</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.headerRightActions}>
+            {/* Credits Wallet Pill */}
+            <TouchableOpacity
+              style={styles.creditsWalletPill}
+              onPress={() => router.push('/billing')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="wallet-outline" size={15} color="#059669" />
+              <Text style={styles.creditsText}>530</Text>
+            </TouchableOpacity>
+
+            {/* Light / Dark Mode Toggle */}
+            <TouchableOpacity
+              style={[styles.themeToggleButton, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}
+              onPress={() => Alert.alert('Display Theme', `Current appearance: ${isDark ? 'Dark Mode' : 'Light Mode'}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={isDark ? 'moon-outline' : 'sunny-outline'} size={18} color={isDark ? '#F59E0B' : '#4B5563'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16, paddingTop: 14 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header Action Row */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[typography.title1, { color: colors.textPrimary }]}>Studio Overview</Text>
-              <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                {session?.studio.name} · {session?.primaryRole}
-              </Text>
-            </View>
+          {/* 2. Event Months Horizontal Bar */}
+          <View style={styles.eventMonthsHeader}>
+            <Ionicons name="calendar" size={16} color="#EA580C" />
+            <Text style={styles.eventMonthsTitle}>Event Months</Text>
+          </View>
 
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button
-                title="+ Wedding"
-                onPress={() => router.push('/orders/create-wedding')}
-                size="sm"
-                variant="primary"
-              />
-              <Button
-                title="+ Occasion"
-                onPress={() => router.push('/orders/create-occasion')}
-                size="sm"
-                variant="outline"
-              />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.monthsCarouselContent}
+            style={{ marginTop: 8 }}
+          >
+            {months.map(m => {
+              const isSelected = selectedMonth === m.key;
+              return (
+                <TouchableOpacity
+                  key={m.key}
+                  style={[
+                    styles.monthPill,
+                    isSelected ? styles.monthPillActive : styles.monthPillInactive,
+                    { borderColor: isSelected ? '#EA580C' : isDark ? '#374151' : '#F3E8E2' },
+                  ]}
+                  onPress={() => setSelectedMonth(m.key)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.monthLabel, isSelected ? styles.monthLabelActive : styles.monthLabelInactive]}>
+                    {m.label}
+                  </Text>
+                  <View style={[styles.monthBadge, isSelected ? styles.monthBadgeActive : styles.monthBadgeInactive]}>
+                    <Text style={[styles.monthBadgeText, isSelected ? styles.monthBadgeTextActive : styles.monthBadgeTextInactive]}>
+                      {m.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* 3. Month Title & Metric Overview Card */}
+          <View style={styles.monthOverviewSection}>
+            <Text style={[styles.monthMainTitle, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+              November 2026
+            </Text>
+            <Text style={styles.monthSubtitle}>25 dates with events</Text>
+
+            {/* 3-Column Metrics Card */}
+            <View style={[styles.metricsCard, { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: isDark ? colors.border : '#E5E7EB' }]}>
+              <View style={styles.metricColumn}>
+                <Text style={[styles.metricNumber, { color: '#2563EB' }]}>108</Text>
+                <Text style={styles.metricLabel}>Events</Text>
+              </View>
+              <View style={[styles.metricDivider, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
+              <View style={styles.metricColumn}>
+                <Text style={[styles.metricNumber, { color: '#059669' }]}>96</Text>
+                <Text style={styles.metricLabel}>Assigned</Text>
+              </View>
+              <View style={[styles.metricDivider, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
+              <View style={styles.metricColumn}>
+                <Text style={[styles.metricNumber, { color: '#EA580C' }]}>12</Text>
+                <Text style={styles.metricLabel}>Unassigned</Text>
+              </View>
             </View>
           </View>
 
-          {/* Money Overview Card (Obeying strict RBAC) */}
-          {canSeeRevenue && (
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.lg, marginTop: spacing.md },
-              ]}
-            >
-              <View style={styles.cardHeaderRow}>
-                <Text style={[typography.headline, { color: colors.textPrimary }]}>
-                  Financial Snapshot
-                </Text>
-                <Text style={[typography.caption2, { color: colors.gold, fontWeight: '700' }]}>
-                  AUTHORITATIVE LEDGER
-                </Text>
-              </View>
-
-              <View style={[styles.statsGrid, { marginTop: spacing.sm }]}>
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption1, { color: colors.textSecondary }]}>Total Bookings</Text>
-                  <MoneyView amount={totalRevenue} permission={permissions.money.revenue} style={typography.title2} />
-                </View>
-
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption1, { color: colors.textSecondary }]}>Collected Advance</Text>
-                  <MoneyView amount={totalPaid} permission={permissions.money.revenue} style={[typography.title2, { color: colors.success }]} />
-                </View>
-
-                {canSeeCost && (
-                  <View style={styles.statBox}>
-                    <Text style={[typography.caption1, { color: colors.textSecondary }]}>Estimated Costs</Text>
-                    <MoneyView amount={totalCost} permission={permissions.money.cost} style={typography.title2} />
-                  </View>
-                )}
-
-                {canSeeMargin && (
-                  <View style={styles.statBox}>
-                    <Text style={[typography.caption1, { color: colors.textSecondary }]}>Gross Margin</Text>
-                    <MoneyView amount={totalMargin} permission={permissions.money.margin} style={[typography.title2, { color: colors.gold }]} />
-                  </View>
-                )}
-              </View>
+          {/* 4. Filter Chips Row */}
+          <View style={styles.filterRow}>
+            <View style={styles.filterLabelBox}>
+              <Ionicons name="filter" size={13} color="#4B5563" />
+              <Text style={styles.filterLabelText}>FILTER</Text>
             </View>
-          )}
 
-          {/* Operational Workflow Counts (OPS-01) */}
-          <View style={[styles.statsRow, { marginTop: spacing.md }]}>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/orders')}
-              style={[styles.countCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md }]}
-            >
-              <Text style={[typography.largeTitle, { color: colors.primary }]}>{totalBookings}</Text>
-              <Text style={[typography.caption1, { color: colors.textSecondary }]}>All Orders</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/orders')}
-              style={[styles.countCard, { backgroundColor: colors.surface, borderColor: colors.warning, borderRadius: radii.md }]}
-            >
-              <Text style={[typography.largeTitle, { color: colors.warning }]}>{pendingBookings}</Text>
-              <Text style={[typography.caption1, { color: colors.textSecondary }]}>Pending</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/orders')}
-              style={[styles.countCard, { backgroundColor: colors.surface, borderColor: colors.info, borderRadius: radii.md }]}
-            >
-              <Text style={[typography.largeTitle, { color: colors.info }]}>{inProgressBookings}</Text>
-              <Text style={[typography.caption1, { color: colors.textSecondary }]}>In Progress</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/orders')}
-              style={[styles.countCard, { backgroundColor: colors.surface, borderColor: colors.success, borderRadius: radii.md }]}
-            >
-              <Text style={[typography.largeTitle, { color: colors.success }]}>{completedBookings}</Text>
-              <Text style={[typography.caption1, { color: colors.textSecondary }]}>Completed</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Staffing Gaps Alert */}
-          {staffingGaps.length > 0 && (
-            <View
-              style={[
-                styles.gapCard,
-                { backgroundColor: colors.warningSubtle, borderColor: colors.warning, borderRadius: radii.md, marginTop: spacing.md },
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="warning-outline" size={20} color={colors.warning} />
-                <Text style={[typography.headline, { color: colors.warningText, marginLeft: spacing.xs }]}>
-                  {staffingGaps.length} Events Need Crew
-                </Text>
-              </View>
-              <Text style={[typography.footnote, { color: colors.textPrimary, marginTop: 4 }]}>
-                Upcoming events have open photographer or videographer slots. Tap below to allocate active crew.
-              </Text>
-              <Button
-                title="Review Staffing Gaps"
-                onPress={() => router.push('/(tabs)/schedule')}
-                size="sm"
-                variant="outline"
-                style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}
-              />
-            </View>
-          )}
-
-          {/* Active Orders List */}
-          <View style={{ marginTop: spacing.lg }}>
-            <View style={styles.sectionHeader}>
-              <Text style={[typography.title2, { color: colors.textPrimary }]}>Active Bookings</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
-                <Text style={[typography.footnote, { color: colors.primary, fontWeight: '600' }]}>
-                  View All ({orders.length}) →
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  filterMode === 'ASSIGNED' ? styles.filterChipBlueActive : styles.filterChipInactive,
+                ]}
+                onPress={() => setFilterMode(filterMode === 'ASSIGNED' ? 'ALL' : 'ASSIGNED')}
+              >
+                <Text style={[styles.filterChipText, filterMode === 'ASSIGNED' ? styles.filterChipTextBlueActive : styles.filterChipTextInactive]}>
+                  Assigned
                 </Text>
               </TouchableOpacity>
-            </View>
 
-            {orders.slice(0, 3).map(order => (
               <TouchableOpacity
-                key={order.id}
-                onPress={() => router.push(`/orders/${order.id}` as any)}
                 style={[
-                  styles.orderCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.sm },
+                  styles.filterChip,
+                  filterMode === 'UNASSIGNED' ? styles.filterChipAmberActive : styles.filterChipInactive,
                 ]}
+                onPress={() => setFilterMode(filterMode === 'UNASSIGNED' ? 'ALL' : 'UNASSIGNED')}
               >
-                <View style={styles.orderTopRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[typography.caption2, { color: colors.textMuted }]}>
-                      {order.tenantOrderNumber}
-                    </Text>
-                    {order.priority === 'PINNED' && (
-                      <Ionicons name="pin" size={14} color={colors.gold} />
-                    )}
-                  </View>
-                  <StatusBadge label={order.status} variant={mapOrderStatusToVariant(order.status)} size="sm" />
-                </View>
-
-                <Text style={[typography.headline, { color: colors.textPrimary, marginTop: 4 }]}>
-                  {order.title}
+                <Text style={[styles.filterChipText, filterMode === 'UNASSIGNED' ? styles.filterChipTextAmberActive : styles.filterChipTextInactive]}>
+                  Unassigned
                 </Text>
+              </TouchableOpacity>
 
-                <View style={styles.orderMetaRow}>
-                  <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-                  <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4 }]}>
-                    {new Date(order.eventDate).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </Text>
-                  <Text style={[typography.caption1, { color: colors.textMuted, marginHorizontal: 6 }]}>•</Text>
-                  <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-                  <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4 }]} numberOfLines={1}>
-                    {order.venueLocation || 'Venue TBD'}
-                  </Text>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  filterMode === 'COMPLETED' ? styles.filterChipGreenActive : styles.filterChipInactive,
+                ]}
+                onPress={() => setFilterMode(filterMode === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
+              >
+                <Text style={[styles.filterChipText, filterMode === 'COMPLETED' ? styles.filterChipTextGreenActive : styles.filterChipTextInactive]}>
+                  Completed
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
+          {/* 5. Daily Event Schedule Cards (Grouped by Date) */}
+          <View style={{ marginTop: 16 }}>
+            {dateGroups.length === 0 ? (
+              <StateView
+                type="empty"
+                title="No Events Found"
+                message={`No events match ${filterMode.toLowerCase()} filter for this period.`}
+                actionTitle="Reset Filter"
+                onAction={() => setFilterMode('ALL')}
+              />
+            ) : (
+              dateGroups.map(group => (
+                <View
+                  key={group.dateKey}
+                  style={[
+                    styles.dateGroupContainer,
+                    { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: isDark ? colors.border : '#E5E7EB' },
+                  ]}
+                >
+                  {/* Distinctive Orange Date Header Banner */}
+                  <View style={styles.dateHeaderBanner}>
+                    <Text style={styles.dateHeaderTitle}>
+                      {group.dayNum} {group.dayOfWeek} •
+                    </Text>
+                    <View style={styles.dateEventCountBadge}>
+                      <Text style={styles.dateEventCountText}>
+                        {group.events.length} {group.events.length === 1 ? 'Event' : 'Events'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Event Items inside this Date */}
+                  {group.events.map((evt, idx) => {
+                    const isAssigned = evt.status === 'ASSIGNED' || evt.assignments.length > 0;
+                    return (
+                      <View key={evt.id}>
+                        {idx > 0 && <View style={[styles.eventDivider, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }]} />}
+
+                        <TouchableOpacity
+                          style={styles.eventRowContainer}
+                          onPress={() => router.push(`/events/${evt.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          {/* Left Status Stripe (Teal if assigned, Amber if unassigned) */}
+                          <View
+                            style={[
+                              styles.statusStripe,
+                              { backgroundColor: isAssigned ? '#10B981' : '#F59E0B' },
+                            ]}
+                          />
+
+                          <View style={styles.eventRowBody}>
+                            {/* Top Line: #Order, Client Title, Time, Action Icons */}
+                            <View style={styles.eventTopLine}>
+                              <Text style={styles.tenantOrderTag}>
+                                {evt.tenantOrderNumber || `#${evt.id.slice(-3)}`}
+                              </Text>
+
+                              <Text
+                                style={[styles.clientNameText, { color: isDark ? '#FFFFFF' : '#111827' }]}
+                                numberOfLines={1}
+                              >
+                                {evt.orderTitle}
+                              </Text>
+
+                              {/* Time */}
+                              <View style={styles.timeTagBox}>
+                                <Ionicons name="time-outline" size={13} color="#D97706" />
+                                <Text style={styles.timeTagText}>
+                                  {formatEventTime(evt.startTime)}
+                                </Text>
+                              </View>
+
+                              {/* Actions: Assign Crew, Edit, Delete */}
+                              <View style={styles.actionIconGroup}>
+                                <TouchableOpacity
+                                  style={styles.actionIconBtn}
+                                  onPress={() => router.push(`/events/${evt.id}`)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                >
+                                  <Ionicons name="person-add-outline" size={16} color="#EA580C" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={styles.actionIconBtn}
+                                  onPress={() => router.push(`/events/${evt.id}`)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                >
+                                  <Ionicons name="pencil-outline" size={16} color="#6B7280" />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={styles.actionIconBtn}
+                                  onPress={() => {
+                                    Alert.alert(
+                                      'Delete Event',
+                                      `Are you sure you want to remove ${evt.eventTypeName}?`,
+                                      [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        { text: 'Delete', style: 'destructive' },
+                                      ]
+                                    );
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                >
+                                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+
+                            {/* Middle Line: Ceremony Type & Location */}
+                            <View style={styles.eventMetaLine}>
+                              <View style={styles.ceremonyTagBox}>
+                                <Ionicons name="heart-outline" size={13} color="#EA580C" />
+                                <Text style={styles.ceremonyText}>
+                                  {evt.eventTypeName.toUpperCase()}
+                                </Text>
+                              </View>
+
+                              {evt.venueName && (
+                                <View style={styles.venueTagBox}>
+                                  <Ionicons name="location-outline" size={13} color="#6B7280" />
+                                  <Text
+                                    style={[styles.venueText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                                    numberOfLines={1}
+                                  >
+                                    {evt.venueName}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+
+                            {/* Bottom Line: Crew Assignment Chips */}
+                            <View style={styles.crewChipRow}>
+                              {evt.assignments.length === 0 ? (
+                                <View style={styles.unassignedChip}>
+                                  <Ionicons name="alert-circle-outline" size={12} color="#D97706" />
+                                  <Text style={styles.unassignedChipText}>Needs Crew Assignment</Text>
+                                </View>
+                              ) : (
+                                evt.assignments.slice(0, 3).map(asg => (
+                                  <View
+                                    key={asg.id}
+                                    style={[
+                                      styles.crewMemberPill,
+                                      { backgroundColor: isDark ? '#374151' : '#F3F4F6' },
+                                    ]}
+                                  >
+                                    <View style={styles.crewDot} />
+                                    <Text
+                                      style={[
+                                        styles.crewMemberName,
+                                        { color: isDark ? '#E5E7EB' : '#374151' },
+                                      ]}
+                                    >
+                                      {asg.agentName}
+                                    </Text>
+                                    <Text style={styles.crewStar}>★</Text>
+                                  </View>
+                                ))
+                              )}
+
+                              {evt.assignments.length > 3 && (
+                                <View
+                                  style={[
+                                    styles.crewMorePill,
+                                    { backgroundColor: isDark ? '#374151' : '#F3F4F6' },
+                                  ]}
+                                >
+                                  <Text style={styles.crewMoreText}>+{evt.assignments.length - 3}</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
                 </View>
+              ))
+            )}
+          </View>
 
-                {canSeeRevenue && order.financials && (
-                  <View style={[styles.orderPriceRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                    <Text style={[typography.caption1, { color: colors.textSecondary }]}>Price / Balance Due:</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <MoneyView amount={order.financials.totalAmount} permission={permissions.money.revenue} />
-                      <Text style={[typography.caption1, { color: colors.textMuted }]}>/</Text>
-                      <MoneyView
-                        amount={order.financials.balanceDue}
-                        permission={permissions.money.revenue}
-                        style={{ color: (order.financials.balanceDue || 0) > 0 ? colors.warning : colors.success }}
-                      />
+          {/* 6. Expandable Financial Snapshot & Staffing Gaps */}
+          <View style={{ marginTop: 24 }}>
+            <TouchableOpacity
+              style={[
+                styles.financialsToggleButton,
+                { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: isDark ? colors.border : '#E5E7EB' },
+              ]}
+              onPress={() => setShowFinancials(!showFinancials)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="bar-chart-outline" size={18} color="#EA580C" />
+                <Text style={[styles.financialsToggleText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                  Financial Snapshot & Gaps
+                </Text>
+              </View>
+              <Ionicons
+                name={showFinancials ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+
+            {showFinancials && (
+              <View style={{ marginTop: 10 }}>
+                {canSeeRevenue && (
+                  <View
+                    style={[
+                      styles.card,
+                      { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.lg },
+                    ]}
+                  >
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={[typography.headline, { color: colors.textPrimary }]}>
+                        Financial Snapshot
+                      </Text>
+                      <Text style={[typography.caption2, { color: colors.gold, fontWeight: '700' }]}>
+                        AUTHORITATIVE LEDGER
+                      </Text>
+                    </View>
+
+                    <View style={[styles.statsGrid, { marginTop: spacing.sm }]}>
+                      <View style={styles.statBox}>
+                        <Text style={[typography.caption1, { color: colors.textSecondary }]}>Total Bookings</Text>
+                        <MoneyView amount={totalRevenue} permission={permissions.money.revenue} style={typography.title2} />
+                      </View>
+
+                      <View style={styles.statBox}>
+                        <Text style={[typography.caption1, { color: colors.textSecondary }]}>Collected Advance</Text>
+                        <MoneyView amount={totalPaid} permission={permissions.money.revenue} style={[typography.title2, { color: colors.success }]} />
+                      </View>
+
+                      {canSeeCost && (
+                        <View style={styles.statBox}>
+                          <Text style={[typography.caption1, { color: colors.textSecondary }]}>Estimated Costs</Text>
+                          <MoneyView amount={totalCost} permission={permissions.money.cost} style={typography.title2} />
+                        </View>
+                      )}
+
+                      {canSeeMargin && (
+                        <View style={styles.statBox}>
+                          <Text style={[typography.caption1, { color: colors.textSecondary }]}>Gross Margin</Text>
+                          <MoneyView amount={totalMargin} permission={permissions.money.margin} style={[typography.title2, { color: colors.gold }]} />
+                        </View>
+                      )}
                     </View>
                   </View>
                 )}
-              </TouchableOpacity>
-            ))}
+
+                {staffingGaps.length > 0 && (
+                  <View
+                    style={[
+                      styles.gapCard,
+                      { backgroundColor: colors.warningSubtle, borderColor: colors.warning, borderRadius: radii.md, marginTop: spacing.md },
+                    ]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="alert-circle" size={18} color={colors.warning} />
+                      <Text style={[typography.headline, { color: colors.warning }]}>
+                        {staffingGaps.length} Events Need Crew Assignments
+                      </Text>
+                    </View>
+                    <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: 4 }]}>
+                      Resolve staffing allocations before event execution.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </ScrollView>
       </View>
@@ -296,11 +578,9 @@ export default function TabIndexScreen() {
   // 2. AGENT WORKSPACE (My Shoots / Schedule)
   // ----------------------------------------------------
   if (workspace === 'SHOOTS') {
-    // Filter events assigned to this agent
     const agentId = session?.id || 'usr-agt-01';
     const myEvents = events.filter(e => e.assignments.some(a => a.agentId === agentId));
 
-    // Completed shoots with pending submissions (AGT-03)
     const pendingSubmissions = myEvents.filter(e => {
       const myAsg = e.assignments.find(a => a.agentId === agentId);
       return e.status === 'COMPLETED' && myAsg && myAsg.submissionCount === undefined;
@@ -333,7 +613,7 @@ export default function TabIndexScreen() {
             </View>
           </View>
 
-          {/* Pending Submissions Alert (AGT-03) */}
+          {/* Pending Submissions Alert */}
           {pendingSubmissions.length > 0 && (
             <View
               style={[
@@ -352,7 +632,7 @@ export default function TabIndexScreen() {
               </Text>
               <Button
                 title="Enter Counts Now"
-                onPress={() => router.push('/(tabs)/orders')} // Tab 2 is Submissions for Agent
+                onPress={() => router.push('/(tabs)/orders')}
                 size="sm"
                 variant="primary"
                 style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}
@@ -410,7 +690,6 @@ export default function TabIndexScreen() {
                     </Text>
                   </View>
 
-                  {/* Contact & Map Action Buttons */}
                   <View style={[styles.actionBtnRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
                     {evt.contactPhone && (
                       <TouchableOpacity onPress={() => handleCall(evt.contactPhone)} style={styles.iconBtn}>
@@ -425,7 +704,6 @@ export default function TabIndexScreen() {
                       </TouchableOpacity>
                     )}
 
-                    {/* Own Assignment Pay */}
                     {myAsg?.assignmentPay && (
                       <View style={{ marginLeft: 'auto' }}>
                         <Text style={[typography.caption2, { color: colors.textMuted }]}>Assignment Pay</Text>
@@ -502,7 +780,6 @@ export default function TabIndexScreen() {
                   </Text>
                 )}
 
-                {/* Review Portal Connection for Reviewable tasks (ALBUM, FILM, REEL, HIGHLIGHT) */}
                 {task.isReviewable && task.reviewItemId && (
                   <View
                     style={[
@@ -536,7 +813,6 @@ export default function TabIndexScreen() {
                   </View>
                 )}
 
-                {/* Task Pay (Self-access exception) */}
                 {task.cost && (
                   <View style={[styles.orderPriceRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
                     <Text style={[typography.caption1, { color: colors.textSecondary }]}>Task Compensation:</Text>
@@ -563,6 +839,417 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 96,
   },
+
+  /* Golden Moment CRM Header */
+  crmHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brandAvatarText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 18,
+    fontStyle: 'italic',
+  },
+  brandTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  crmBadge: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  crmBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  creditsWalletPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    gap: 4,
+  },
+  creditsText: {
+    color: '#059669',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  themeToggleButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+  },
+
+  /* Months Carousel */
+  eventMonthsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  eventMonthsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  monthsCarouselContent: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  monthPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  monthPillActive: {
+    backgroundColor: '#EA580C',
+  },
+  monthPillInactive: {
+    backgroundColor: '#FFFFFF',
+  },
+  monthLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  monthLabelActive: {
+    color: '#FFFFFF',
+  },
+  monthLabelInactive: {
+    color: '#374151',
+  },
+  monthBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  monthBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  monthBadgeInactive: {
+    backgroundColor: '#FEE2E2',
+  },
+  monthBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  monthBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  monthBadgeTextInactive: {
+    color: '#EA580C',
+  },
+
+  /* Month Overview & Metrics */
+  monthOverviewSection: {
+    marginTop: 14,
+  },
+  monthMainTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  monthSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  metricsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  metricColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  metricDivider: {
+    width: 1,
+    height: 28,
+  },
+
+  /* Filter Row */
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 10,
+  },
+  filterLabelBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  filterLabelText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#4B5563',
+    letterSpacing: 0.6,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  filterChipBlueActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#3B82F6',
+  },
+  filterChipAmberActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  filterChipGreenActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
+  },
+  filterChipInactive: {
+    backgroundColor: '#F3F4F6',
+    borderColor: 'transparent',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterChipTextBlueActive: {
+    color: '#2563EB',
+  },
+  filterChipTextAmberActive: {
+    color: '#D97706',
+  },
+  filterChipTextGreenActive: {
+    color: '#059669',
+  },
+  filterChipTextInactive: {
+    color: '#4B5563',
+  },
+
+  /* Date Group Cards */
+  dateGroupContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  dateHeaderBanner: {
+    backgroundColor: '#EA580C',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  dateHeaderTitle: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 0.4,
+  },
+  dateEventCountBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  dateEventCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  eventDivider: {
+    height: 1,
+  },
+  eventRowContainer: {
+    flexDirection: 'row',
+  },
+  statusStripe: {
+    width: 5,
+  },
+  eventRowBody: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  eventTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tenantOrderTag: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EA580C',
+  },
+  clientNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  timeTagBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  timeTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  actionIconGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 4,
+  },
+  actionIconBtn: {
+    padding: 2,
+  },
+  eventMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 12,
+  },
+  ceremonyTagBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ceremonyText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  venueTagBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flex: 1,
+  },
+  venueText: {
+    fontSize: 11,
+  },
+  crewChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  crewMemberPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  crewDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#6B7280',
+  },
+  crewMemberName: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  crewStar: {
+    fontSize: 11,
+    color: '#F59E0B',
+  },
+  crewMorePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  crewMoreText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  unassignedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  unassignedChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+
+  /* Financials Toggle */
+  financialsToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  financialsToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  /* Legacy Shared Styles */
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -586,25 +1273,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  countCard: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
   gapCard: {
     padding: 14,
     borderWidth: 1,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   orderCard: {
     padding: 14,

@@ -1,6 +1,20 @@
 import { StudioBranding } from '@/types/auth';
 
 export const DEMO_STUDIOS: Record<string, StudioBranding> = {
+  goldenmoment: {
+    id: 'studio-gm-01',
+    name: 'Golden Moment.in',
+    subdomain: 'goldenmoment',
+    primaryColor: '#E05822',
+    currency: 'INR',
+    currencySymbol: '₹',
+    proEnabled: true,
+    termsText: '50% advance to confirm booking dates. Balance payable 7 days prior to the first event. Raw photo & video retained for 90 days.',
+    customDomain: 'app.goldenmoment.in',
+    domainStatus: 'verified',
+    adminUpiId: 'goldenmoment@upi',
+    adminUpiName: 'Golden Moment Events LLP',
+  },
   aura: {
     id: 'studio-aura-01',
     name: 'Aura Wedding Studios',

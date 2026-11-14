@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [permissions, setPermissions] = useState<RolePermissions>(
     resolveEffectivePermissions(DEMO_PERSONAS[0].permissions)
   );
-  const [selectedStudio, setSelectedStudio] = useState<StudioBranding | null>(DEMO_STUDIOS.aura);
+  const [selectedStudio, setSelectedStudio] = useState<StudioBranding | null>(DEMO_STUDIOS.goldenmoment);
   const [isExpired, setIsExpired] = useState(false);
   const [isDeactivated, setIsDeactivated] = useState(false);
 
