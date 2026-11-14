@@ -1,41 +1,23 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# Mobile UI/UX Engineering Standards & App Guidelines
 
-## Expo has changed — do not trust your training data
+Act as a senior mobile product designer and mobile software engineer.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+## Core Rules for Mobile Development Tasks:
+1. **Consult installed agent skills & documentation**: Leverage `mobile-design`, `vercel-react-native-skills`, `expo-native-ui`, `expo-router`, `expo-ui`, `expo-project-structure`, and official Expo SDK 58 documentation.
+2. **Mobile-first interaction**: Design touch-first (44x44pt on iOS, 48x48dp on Android), avoiding desktop web tables and crowded desktop layouts squeezed onto phones.
+3. **Platform conventions**: Follow Apple Human Interface Guidelines (HIG) on iOS and Material Design 3 on Android.
+4. **Native primitives**: Prefer native UI primitives through `@expo/ui` (BottomSheet, Switch, Picker, Menu, FieldGroup) where supported, and virtualized lists (FlatList/FlashList) for scrolling feeds.
+5. **Coherent design system**: Refined typography, semantic tokens (`Color` API / theme tokens), purposeful status colors, restrained contrast (WCAG AA). Avoid generic AI-generated gradients, excessive card nests, and emoji UI icons.
+6. **Every async state accounted for**: Loading, populated, empty, filtered-empty, error/retry, refreshing, submitting, permission-denied, stale/conflict, and session-expired states.
+7. **Safe areas & ergonomics**: Respect safe areas, keyboard avoidance (`react-native-keyboard-controller` or `keyboardShouldPersistTaps="handled"`), Dynamic Type text scaling, and Android back button handling.
+8. **Performance & Vercel rules**: Memoize list items, stabilize callback references, animate transform/opacity on GPU, avoid inline style objects in hot paths.
+9. **WedTrack Role & Data Boundaries**: Enforce strict RBAC (Admin/Owner, Manager, Editor, Agent). Hide forbidden values (never substitute ₹0 for hidden financial fields). Preserve demo vs live boundary.
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
-
-## Commands
-
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
-
+## Development Commands
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
+npm install                  # Install project dependencies
+npx expo start              # Start the dev server
+npx expo run:android        # Run on Android development build / emulator
+npx expo run:ios            # Run on iOS simulator (macOS)
+npx tsc --noEmit            # Type check TypeScript
 ```
-
-Run lint and typecheck before declaring any task done.
-
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md

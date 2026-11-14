@@ -1,0 +1,65 @@
+{
+  "version": 2,
+  "skills": {
+    "expo-animation": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-animation/SKILL.md",
+      "computedHash": "f0170ecd175427253c545497cba3546bbb57a17ab314041ac143d94320e0629f"
+    },
+    "expo-data-fetching": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-data-fetching/SKILL.md",
+      "computedHash": "e6eef33d1f8ea31280cd8338078c7c2ad8b64e923f5b2195f25536e3c0c971b5"
+    },
+    "expo-design-system": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-design-system/SKILL.md",
+      "computedHash": "57930ec7c5c1230a4c3d7fb71dd2818d429acb672029be21219e00d8e09973f3"
+    },
+    "expo-native-ui": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-native-ui/SKILL.md",
+      "computedHash": "b42cac2aa01ef0b11b4a8b5cb93b1d519e4f60c264cedf6c68ce15621e717ba8"
+    },
+    "expo-overview": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-overview/SKILL.md",
+      "computedHash": "22837a9bae48f1dd4fbbfdc91ebdd06553eebdb41bc57a964e72109bba59af0a"
+    },
+    "expo-project-structure": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-project-structure/SKILL.md",
+      "computedHash": "cda1f6cd63eac4dda715e661a778126de168f9d2a4ffe9f1f33f9cec15cda2af"
+    },
+    "expo-router": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-router/SKILL.md",
+      "computedHash": "f55ddba2949896d787741a5e11a8180077ed588465dafbe9f4195706e77631ba"
+    },
+    "expo-ui": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-ui/SKILL.md",
+      "computedHash": "57a62696b794125f7f34d2d064c9d12c70831b7a59ac4c8b630ec6020a7e414e"
+    },
+    "mobile-design": {
+      "source": "RubenGlez/mobile-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "bcb440b288e40b2548716d985d6d6f2067ca3139e80b3a38693de78a65e98d20"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-skills/SKILL.md",
+      "computedHash": "4c160f1f4e623b989cadb71f42a0813be574d172acf5e32a6411c87f3e28c05a"
+    }
+  }
+}
