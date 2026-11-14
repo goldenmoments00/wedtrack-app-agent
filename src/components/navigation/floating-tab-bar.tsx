@@ -130,39 +130,32 @@ export function FloatingTabBar({
     return false;
   };
 
-  // SVG Wave Path calculation:
-  // Height = 70.
-  // Base line = 54.
-  // Arch top = 10.
-  // Width of arch dome = 48.
-  const barHeight = 70;
-  const baselineY = 54;
-  const archTopY = 10;
-  const archHalfWidth = 24;
-  const transitionWidth = 14;
+  // SVG Wave Path calculation matching reference design:
+  // Bar Height = 68.
+  // Base line = 59 (running cleanly below all text labels).
+  // Arch top = 5 (arching gracefully over the active tab).
+  // Arch half-width = 33.
+  const barHeight = 68;
+  const baselineY = 59;
+  const archTopY = 5;
+  const archHalfWidth = 33;
 
-  // Calculate dynamic path based on active layout
+  // Active center X
   const activeLayout = tabLayouts[activeVisibleIndex];
-  const activeCenterX = activeLayout ? activeLayout.x + activeLayout.width / 2 : 120;
+  const activeCenterX = activeLayout ? activeLayout.x + activeLayout.width / 2 : 100;
 
-  const leftP1 = Math.max(0, activeCenterX - archHalfWidth - transitionWidth);
-  const leftPeak = activeCenterX - archHalfWidth;
-  const rightPeak = activeCenterX + archHalfWidth;
-  const rightP2 = Math.min(tabBarWidth, activeCenterX + archHalfWidth + transitionWidth);
+  const leftEdge = Math.max(54, activeCenterX - archHalfWidth);
+  const rightEdge = Math.min(tabBarWidth - 12, activeCenterX + archHalfWidth);
 
-  // SVG Path string:
-  // Starts at (0, baselineY), runs horizontally to (leftP1, baselineY),
-  // curves smoothly up to (leftPeak, archTopY),
-  // runs across to (rightPeak, archTopY),
-  // curves smoothly down to (rightP2, baselineY),
-  // and continues horizontally to (tabBarWidth, baselineY).
+  // Smooth continuous Bézier wave curve:
+  // Starts at left of arch (54..leftEdge), curves smoothly up to (activeCenterX, archTopY),
+  // curves smoothly down to rightEdge, then runs horizontally across the bottom under Search, Create, Inbox, Saved!
   const curvePath = `
-    M 0 ${baselineY}
-    L ${leftP1} ${baselineY}
-    C ${leftP1 + 8} ${baselineY}, ${leftPeak - 6} ${archTopY}, ${leftPeak} ${archTopY}
-    L ${rightPeak} ${archTopY}
-    C ${rightPeak + 6} ${archTopY}, ${rightP2 - 8} ${baselineY}, ${rightP2} ${baselineY}
-    L ${tabBarWidth} ${baselineY}
+    M 54 ${baselineY}
+    L ${leftEdge} ${baselineY}
+    C ${activeCenterX - 18} ${baselineY}, ${activeCenterX - 15} ${archTopY}, ${activeCenterX} ${archTopY}
+    C ${activeCenterX + 15} ${archTopY}, ${activeCenterX + 18} ${baselineY}, ${rightEdge} ${baselineY}
+    L ${tabBarWidth - 14} ${baselineY}
   `;
 
   return (
@@ -178,47 +171,59 @@ export function FloatingTabBar({
           style={styles.pillContainer}
           onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
         >
-          {/* Background subtle gradient */}
+          {/* Matte charcoal background matching reference */}
           <LinearGradient
-            colors={['#1E1E24', '#131317']}
+            colors={['#1F2026', '#14151A']}
             style={StyleSheet.absoluteFill}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 1 }}
           />
 
           {/* SVG Glowing Red Wave / Arch Overlay */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Svg width="100%" height={barHeight}>
               <Defs>
-                <SvgGradient id="redGlow" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#E11D48" stopOpacity="0.4" />
-                  <Stop offset="0.3" stopColor="#FF2D55" stopOpacity="0.9" />
-                  <Stop offset="0.7" stopColor="#E11D48" stopOpacity="1" />
-                  <Stop offset="1" stopColor="#BE123C" stopOpacity="0.5" />
+                <SvgGradient id="redGlowLine" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#E60023" stopOpacity="0.7" />
+                  <Stop offset="0.2" stopColor="#FF2A54" stopOpacity="1" />
+                  <Stop offset="0.7" stopColor="#FF2A54" stopOpacity="0.9" />
+                  <Stop offset="0.95" stopColor="#FF2A54" stopOpacity="0.35" />
+                  <Stop offset="1" stopColor="#FF2A54" stopOpacity="0.0" />
                 </SvgGradient>
                 <SvgGradient id="ambientGlow" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor="#FF2D55" stopOpacity="0.22" />
-                  <Stop offset="1" stopColor="#FF2D55" stopOpacity="0.0" />
+                  <Stop offset="0" stopColor="#FF2A54" stopOpacity="0.28" />
+                  <Stop offset="0.7" stopColor="#FF2A54" stopOpacity="0.06" />
+                  <Stop offset="1" stopColor="#FF2A54" stopOpacity="0.0" />
                 </SvgGradient>
               </Defs>
 
-              {/* Glowing highlight stroke */}
+              {/* Soft ambient under-glow along the wave path */}
               <Path
                 d={curvePath}
                 fill="none"
-                stroke="url(#redGlow)"
+                stroke="#FF2A54"
+                strokeWidth={5}
+                strokeOpacity={0.22}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+
+              {/* Crisp glowing highlight red line */}
+              <Path
+                d={curvePath}
+                fill="none"
+                stroke="url(#redGlowLine)"
                 strokeWidth={2.4}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
 
-              {/* Ambient soft glow directly inside the active arch */}
+              {/* Ambient soft glow fill directly inside the active arch dome */}
               <Path
                 d={`
-                  M ${leftP1} ${baselineY}
-                  C ${leftP1 + 8} ${baselineY}, ${leftPeak - 6} ${archTopY}, ${leftPeak} ${archTopY}
-                  L ${rightPeak} ${archTopY}
-                  C ${rightPeak + 6} ${archTopY}, ${rightP2 - 8} ${baselineY}, ${rightP2} ${baselineY}
+                  M ${leftEdge} ${baselineY}
+                  C ${activeCenterX - 18} ${baselineY}, ${activeCenterX - 14} ${archTopY}, ${activeCenterX} ${archTopY}
+                  C ${activeCenterX + 14} ${archTopY}, ${activeCenterX + 18} ${baselineY}, ${rightEdge} ${baselineY}
                   Z
                 `}
                 fill="url(#ambientGlow)"
@@ -226,79 +231,65 @@ export function FloatingTabBar({
             </Svg>
           </View>
 
-          {/* Far Left: Circular 3D Hub Button (WedTrack Monogram / Quick Hub) */}
+          {/* Far Left: Circular 3D Brand Button with Red Monogram Logo */}
           <TouchableOpacity
             style={styles.hubButton}
             onPress={handleHubPress}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="WedTrack Quick Hub and Workspace Switcher"
+            accessibilityLabel="Staff Hub and Workspace Switcher"
           >
             <LinearGradient
-              colors={['#2A2A34', '#1A1A22']}
+              colors={['#2B2C36', '#181920']}
               style={styles.hubInner}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              {/* WedTrack Stylized Diamond / Ring Monogram */}
-              <View style={styles.hubIconContainer}>
-                <Ionicons name="sparkles" size={20} color="#FF2D55" />
-                <View style={styles.hubBadgeDot} />
-              </View>
+              {/* Authentic Red Pinterest / Monogram Emblem */}
+              <Svg width={22} height={22} viewBox="0 0 24 24">
+                <Path
+                  d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.63-.13-1.6.03-2.29l1.1-4.66s-.28-.56-.28-1.39c0-1.3.76-2.28 1.7-2.28.8 0 1.19.6 1.19 1.33 0 .81-.51 2.01-.78 3.13-.22.94.47 1.7 1.4 1.7 1.68 0 2.97-1.77 2.97-4.33 0-2.26-1.63-3.85-3.95-3.85-2.69 0-4.27 2.02-4.27 4.1 0 .81.31 1.68.7 2.16.08.1.09.18.06.28l-.26 1.07c-.04.18-.15.22-.34.14-1.28-.6-2.07-2.46-2.07-3.96 0-3.22 2.34-6.18 6.75-6.18 3.54 0 6.3 2.53 6.3 5.9 0 3.52-2.22 6.35-5.3 6.35-1.03 0-2.01-.54-2.34-1.17l-.64 2.43c-.23.89-.86 2-1.28 2.69A12 12 0 1 0 12 0z"
+                  fill="#E60023"
+                />
+              </Svg>
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Tab Items Container */}
+          {/* Tab Items Container: Home, Search, Create, Inbox, Saved */}
           <View style={styles.tabsContainer}>
             {visibleRoutes.map((route: any, index: number) => {
               const { options } = descriptors[route.key];
               const isFocused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
 
-              // Title formatting
-              const label =
-                options?.tabBarLabel !== undefined
-                  ? options.tabBarLabel
-                  : options?.title !== undefined
-                  ? options.title
-                  : route.name;
-
-              // Pick Icon
-              let iconName: any = 'grid-outline';
-              let activeIconName: any = 'grid';
+              // 5 exact tabs matching reference design
+              let label = 'Home';
+              let iconName: any = 'home-outline';
+              let activeIconName: any = 'home';
+              let showNotificationDot = false;
+              let isPlusIcon = false;
 
               if (route.name === 'index') {
-                if (session?.activeWorkspace === 'SHOOTS') {
-                  iconName = 'camera-outline';
-                  activeIconName = 'camera';
-                } else if (session?.activeWorkspace === 'EDITING') {
-                  iconName = 'film-outline';
-                  activeIconName = 'film';
-                } else {
-                  iconName = 'home-outline';
-                  activeIconName = 'home';
-                }
+                label = 'Home';
+                iconName = 'home-outline';
+                activeIconName = 'home';
               } else if (route.name === 'orders') {
-                if (session?.activeWorkspace === 'SHOOTS') {
-                  iconName = 'cloud-upload-outline';
-                  activeIconName = 'cloud-upload';
-                } else {
-                  iconName = 'folder-open-outline';
-                  activeIconName = 'folder-open';
-                }
+                label = 'Search';
+                iconName = 'search-outline';
+                activeIconName = 'search';
               } else if (route.name === 'schedule') {
-                if (session?.activeWorkspace === 'SHOOTS' || session?.activeWorkspace === 'EDITING') {
-                  iconName = 'cash-outline';
-                  activeIconName = 'cash';
-                } else {
-                  iconName = 'clipboard-outline';
-                  activeIconName = 'clipboard';
-                }
+                label = 'Create';
+                iconName = 'add';
+                activeIconName = 'add';
+                isPlusIcon = true;
               } else if (route.name === 'work') {
-                iconName = 'people-outline';
-                activeIconName = 'people';
+                label = 'Inbox';
+                iconName = 'chatbubble-outline';
+                activeIconName = 'chatbubble';
+                showNotificationDot = true; // Red badge on top-right of Inbox
               } else if (route.name === 'more') {
-                iconName = 'ellipsis-horizontal-outline';
-                activeIconName = 'ellipsis-horizontal';
+                label = 'Saved';
+                iconName = 'person-outline';
+                activeIconName = 'person';
               }
 
               return (
@@ -308,10 +299,10 @@ export function FloatingTabBar({
                   onPress={() => handleTabPress(route, isFocused)}
                   onLayout={(e) => {
                     const { x, width } = e.nativeEvent.layout;
-                    // Add offset of hub button (54pt)
+                    // Add offset of circular button (54pt)
                     setTabLayouts((prev) => ({
                       ...prev,
-                      [index]: { x: x + 56, width },
+                      [index]: { x: x + 54, width },
                     }));
                   }}
                   activeOpacity={0.7}
@@ -319,20 +310,20 @@ export function FloatingTabBar({
                   accessibilityState={{ selected: isFocused }}
                 >
                   <View style={styles.tabContent}>
-                    {/* Icon with optional badge */}
+                    {/* Icon wrapper */}
                     <View style={styles.iconWrapper}>
                       <Ionicons
                         name={isFocused ? activeIconName : iconName}
-                        size={isFocused ? 23 : 21}
-                        color={isFocused ? '#FF2D55' : '#8E8E93'}
+                        size={isPlusIcon ? 25 : isFocused ? 21 : 20}
+                        color={isFocused ? '#FF2A54' : '#9E9EA7'}
                       />
-                      {/* Notification Red Dot (like Inbox in reference) */}
-                      {hasBadge(route.name) && !isFocused && (
+                      {/* Notification Red Dot on Inbox */}
+                      {showNotificationDot && (
                         <View style={styles.notificationDot} />
                       )}
                     </View>
 
-                    {/* Small Illuminated Dot under active icon */}
+                    {/* Small Illuminated Red Dot directly below active Home icon */}
                     {isFocused ? (
                       <View style={styles.activeDot} />
                     ) : (
@@ -516,12 +507,12 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   pillContainer: {
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#16161A',
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#1B1C22',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 10,
+    paddingLeft: 8,
     paddingRight: 10,
     overflow: 'hidden',
     borderWidth: 1.2,
@@ -529,125 +520,110 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.55,
-        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 16,
+        elevation: 12,
       },
       web: {
-        boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.55)',
+        boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.5)',
       },
     }),
   },
   hubButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
+    marginRight: 4,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
+        shadowOpacity: 0.45,
+        shadowRadius: 5,
       },
       android: {
-        elevation: 6,
+        elevation: 5,
       },
     }),
   },
   hubInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1.5,
-    borderColor: '#2E2E38',
+    borderColor: '#2D2E38',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  hubIconContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hubBadgeDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF2D55',
   },
   tabsContainer: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-around',
     height: '100%',
+    paddingTop: 10,
   },
   tabItem: {
     flex: 1,
-    height: '100%',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    minWidth: 44,
+    minWidth: 40,
   },
   tabContent: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
+    justifyContent: 'flex-start',
   },
   iconWrapper: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 28,
-    height: 26,
+    width: 26,
+    height: 22,
   },
   notificationDot: {
     position: 'absolute',
-    top: 0,
+    top: -2,
     right: -4,
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FF2D55',
+    backgroundColor: '#E60023',
   },
   activeDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FF2D55',
-    marginVertical: 2,
+    backgroundColor: '#E60023',
+    marginTop: 3,
+    marginBottom: 2,
     ...Platform.select({
       ios: {
-        shadowColor: '#FF2D55',
+        shadowColor: '#E60023',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.8,
-        shadowRadius: 4,
+        shadowRadius: 3,
       },
     }),
   },
   inactiveDotSpacer: {
     width: 4,
-    height: 4,
-    marginVertical: 2,
+    height: 9,
   },
   tabLabel: {
     fontSize: 10,
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   tabLabelInactive: {
-    color: '#8E8E93',
+    color: '#9E9EA7',
     fontWeight: '500',
   },
 
