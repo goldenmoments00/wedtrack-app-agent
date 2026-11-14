@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { requireOptionalNativeModule } from 'expo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { DemoStoreProvider } from '@/context/demo-store-context';
@@ -8,6 +9,14 @@ import { useTheme } from '@/hooks/use-theme';
 
 // Allow splash screen to hide naturally
 SplashScreen.hideAsync().catch(() => {});
+
+// Suppress the Expo developer menu floating action button (FAB gear)
+try {
+  const DevMenuPreferences = requireOptionalNativeModule('DevMenuPreferences');
+  DevMenuPreferences?.setPreferencesAsync?.({
+    showFloatingActionButton: false,
+  })?.catch?.(() => {});
+} catch {}
 
 function RootNavigator() {
   const { colors } = useTheme();
