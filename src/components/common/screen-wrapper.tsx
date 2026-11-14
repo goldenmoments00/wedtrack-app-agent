@@ -16,6 +16,7 @@ interface ScreenWrapperProps {
   disableTopInset?: boolean;
   disableBottomInset?: boolean;
   withKeyboardAvoidance?: boolean;
+  withTabBar?: boolean;
 }
 
 export function ScreenWrapper({
@@ -24,6 +25,7 @@ export function ScreenWrapper({
   disableTopInset = false,
   disableBottomInset = false,
   withKeyboardAvoidance = true,
+  withTabBar = false,
 }: ScreenWrapperProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
@@ -32,7 +34,9 @@ export function ScreenWrapper({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: disableTopInset ? 0 : insets.top,
-    paddingBottom: disableBottomInset ? 0 : insets.bottom,
+    paddingBottom: disableBottomInset
+      ? (withTabBar ? 84 : 0)
+      : insets.bottom + (withTabBar ? 84 : 0),
   };
 
   const content = (

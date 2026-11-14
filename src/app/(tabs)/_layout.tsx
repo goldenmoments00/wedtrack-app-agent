@@ -3,10 +3,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { FloatingTabBar } from '@/components/navigation/floating-tab-bar';
 
 export default function TabLayout() {
   const { session, permissions } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const workspace = session?.activeWorkspace || 'OPERATIONS';
 
@@ -22,20 +23,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.tabBarBorder,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-        },
         headerStyle: {
           backgroundColor: colors.surface,
         },
