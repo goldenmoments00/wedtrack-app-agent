@@ -706,8 +706,8 @@ export default function TabIndexScreen() {
           style={[
             styles.freshWorkCard,
             {
-              backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F0F0F2',
+              backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
             },
           ]}
         >
@@ -830,8 +830,8 @@ export default function TabIndexScreen() {
                   style={[
                     styles.freshWorkCircularBtn,
                     {
-                      backgroundColor: isDark ? '#1E2530' : '#F8F9FA',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                      backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#F8F9FA',
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                     },
                   ]}
                   onPress={() => handleCall(evt.contactPhone)}
@@ -846,8 +846,8 @@ export default function TabIndexScreen() {
                   style={[
                     styles.freshWorkCircularBtn,
                     {
-                      backgroundColor: isDark ? '#1E2530' : '#F8F9FA',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                      backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#F8F9FA',
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                     },
                   ]}
                   onPress={() => handleMap(evt.venueMapUrl)}
@@ -871,7 +871,17 @@ export default function TabIndexScreen() {
     };
 
     return (
-      <View style={[styles.root, { backgroundColor: isDark ? '#0B0F15' : '#F7F8FA' }]}>
+      <LinearGradient
+        colors={
+          isDark
+            ? ['#733723', '#5B2A1F', '#371F1D', '#1C181D', '#151218']
+            : ['#F7F8FA', '#F7F8FA', '#F7F8FA']
+        }
+        locations={isDark ? [0, 0.22, 0.5, 0.8, 1.0] : [0, 0.5, 1.0]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.root}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -957,8 +967,8 @@ export default function TabIndexScreen() {
               style={[
                 styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F0F0F2',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
                 },
               ]}
             >
@@ -979,8 +989,8 @@ export default function TabIndexScreen() {
               style={[
                 styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F0F0F2',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
                 },
               ]}
             >
@@ -1001,8 +1011,8 @@ export default function TabIndexScreen() {
               style={[
                 styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F0F0F2',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
                 },
               ]}
             >
@@ -1023,8 +1033,8 @@ export default function TabIndexScreen() {
               style={[
                 styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F0F0F2',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
                 },
               ]}
             >
@@ -1082,8 +1092,8 @@ export default function TabIndexScreen() {
                     isActive
                       ? styles.freshMonthTabActive
                       : {
-                          backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                          borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                          backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                         },
                   ]}
                   onPress={() => {
@@ -1113,8 +1123,8 @@ export default function TabIndexScreen() {
               style={[
                 styles.freshSearchPill,
                 {
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                 },
               ]}
             >
@@ -1141,8 +1151,8 @@ export default function TabIndexScreen() {
                 styles.refFilterPill,
                 {
                   height: 46,
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                 },
               ]}
               onPress={() => {
@@ -1195,12 +1205,12 @@ export default function TabIndexScreen() {
             {filteredWorks.length === 0 ? (
               <View
                 style={{
-                  backgroundColor: isDark ? '#141A22' : '#FFFFFF',
+                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
                   borderRadius: 20,
                   padding: 24,
                   alignItems: 'center',
                   borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
                 }}
               >
                 <Ionicons name="calendar-outline" size={40} color="#9CA3AF" />
@@ -1216,7 +1226,7 @@ export default function TabIndexScreen() {
             )}
           </View>
         </ScrollView>
-      </View>
+      </LinearGradient>
     );
   }
 
