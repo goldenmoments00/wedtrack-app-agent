@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { DemoBanner } from '@/components/common/demo-banner';
+import { AgentProfileView } from '@/components/profile/agent-profile-view';
 
 interface MenuItemProps {
   title: string;
@@ -82,6 +83,11 @@ function MenuItem({ title, subtitle, icon, onPress, badge, destructive }: MenuIt
 export default function TabMoreScreen() {
   const { session, permissions, signOut, mode } = useAuth();
   const { colors, typography, spacing } = useTheme();
+
+  // If in SHOOTS workspace, render the custom glassmorphic Agent Profile
+  if (session?.activeWorkspace === 'SHOOTS') {
+    return <AgentProfileView showBack={false} />;
+  }
 
   const isOwnerOrAdmin = session?.roles.includes('OWNER') || session?.roles.includes('ADMIN');
   const isManager = session?.roles.includes('MANAGER');

@@ -55,7 +55,7 @@ function RootNavigator() {
       <Stack.Screen name="settings/studio" options={{ title: 'Studio Setup & Branding' }} />
       <Stack.Screen name="billing/index" options={{ title: 'Billing & Entitlements' }} />
       <Stack.Screen name="audit/index" options={{ title: 'Studio Activity Log' }} />
-      <Stack.Screen name="profile/index" options={{ title: 'My Profile' }} />
+      <Stack.Screen name="profile/index" options={{ headerShown: false }} />
       <Stack.Screen name="gaps/index" options={{ title: 'Integration Gap Register' }} />
     </Stack>
   );
