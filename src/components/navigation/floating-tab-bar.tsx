@@ -132,30 +132,38 @@ export function FloatingTabBar({
 
   // SVG Wave Path calculation matching reference design:
   // Bar Height = 68.
-  // Base line = 59 (running cleanly below all text labels).
-  // Arch top = 5 (arching gracefully over the active tab).
-  // Arch half-width = 33.
+  // Base line = 58 (running cleanly below all text labels).
+  // Arch top = 6 (wide graceful rounded dome).
   const barHeight = 68;
-  const baselineY = 59;
-  const archTopY = 5;
-  const archHalfWidth = 33;
+  const baselineY = 58;
+  const archTopY = 6;
+  const topHalfWidth = 14;   // Width of the flat-curved dome across the top
+  const archHalfWidth = 38;  // Width at the main curve
+  const flareWidth = 10;     // Soft outward flare into horizontal baseline
 
   // Active center X
   const activeLayout = tabLayouts[activeVisibleIndex];
   const activeCenterX = activeLayout ? activeLayout.x + activeLayout.width / 2 : 100;
 
-  const leftEdge = Math.max(54, activeCenterX - archHalfWidth);
-  const rightEdge = Math.min(tabBarWidth - 12, activeCenterX + archHalfWidth);
+  const xLeftBase = Math.max(50, activeCenterX - archHalfWidth - flareWidth);
+  const xLeftFoot = Math.max(50, activeCenterX - archHalfWidth);
+  const xLeftShoulder = activeCenterX - topHalfWidth;
+  const xRightShoulder = activeCenterX + topHalfWidth;
+  const xRightFoot = Math.min(tabBarWidth - 12, activeCenterX + archHalfWidth);
+  const xRightBase = Math.min(tabBarWidth - 12, activeCenterX + archHalfWidth + flareWidth);
 
-  // Smooth continuous Bézier wave curve:
-  // Starts at left of arch (54..leftEdge), curves smoothly up to (activeCenterX, archTopY),
-  // curves smoothly down to rightEdge, then runs horizontally across the bottom under Search, Create, Inbox, Saved!
+  // Smooth continuous Bézier wave curve matching reference design:
+  // Runs along baseline, smoothly peels up, forms a wide rounded dome over the active tab,
+  // curves smoothly down, flares out, and runs horizontally across the bottom under remaining tabs!
   const curvePath = `
-    M 54 ${baselineY}
-    L ${leftEdge} ${baselineY}
-    C ${activeCenterX - 18} ${baselineY}, ${activeCenterX - 15} ${archTopY}, ${activeCenterX} ${archTopY}
-    C ${activeCenterX + 15} ${archTopY}, ${activeCenterX + 18} ${baselineY}, ${rightEdge} ${baselineY}
-    L ${tabBarWidth - 14} ${baselineY}
+    M 50 ${baselineY}
+    L ${xLeftBase} ${baselineY}
+    C ${xLeftBase + 5} ${baselineY}, ${xLeftFoot} ${baselineY - 4}, ${xLeftFoot + 3} ${baselineY - 14}
+    C ${xLeftFoot + 7} ${baselineY - 26}, ${xLeftShoulder - 8} ${archTopY}, ${xLeftShoulder} ${archTopY}
+    C ${activeCenterX - 6} ${archTopY - 0.5}, ${activeCenterX + 6} ${archTopY - 0.5}, ${xRightShoulder} ${archTopY}
+    C ${xRightShoulder + 8} ${archTopY}, ${xRightFoot - 7} ${baselineY - 26}, ${xRightFoot - 3} ${baselineY - 14}
+    C ${xRightFoot} ${baselineY - 4}, ${xRightBase - 5} ${baselineY}, ${xRightBase} ${baselineY}
+    L ${tabBarWidth - 12} ${baselineY}
   `;
 
   return (
@@ -221,9 +229,12 @@ export function FloatingTabBar({
               {/* Ambient soft glow fill directly inside the active arch dome */}
               <Path
                 d={`
-                  M ${leftEdge} ${baselineY}
-                  C ${activeCenterX - 18} ${baselineY}, ${activeCenterX - 14} ${archTopY}, ${activeCenterX} ${archTopY}
-                  C ${activeCenterX + 14} ${archTopY}, ${activeCenterX + 18} ${baselineY}, ${rightEdge} ${baselineY}
+                  M ${xLeftBase} ${baselineY}
+                  C ${xLeftBase + 5} ${baselineY}, ${xLeftFoot} ${baselineY - 4}, ${xLeftFoot + 3} ${baselineY - 14}
+                  C ${xLeftFoot + 7} ${baselineY - 26}, ${xLeftShoulder - 8} ${archTopY}, ${xLeftShoulder} ${archTopY}
+                  C ${activeCenterX - 6} ${archTopY - 0.5}, ${activeCenterX + 6} ${archTopY - 0.5}, ${xRightShoulder} ${archTopY}
+                  C ${xRightShoulder + 8} ${archTopY}, ${xRightFoot - 7} ${baselineY - 26}, ${xRightFoot - 3} ${baselineY - 14}
+                  C ${xRightFoot} ${baselineY - 4}, ${xRightBase - 5} ${baselineY}, ${xRightBase} ${baselineY}
                   Z
                 `}
                 fill="url(#ambientGlow)"
