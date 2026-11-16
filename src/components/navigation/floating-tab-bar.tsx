@@ -171,7 +171,7 @@ export function FloatingTabBar({
   if (activeSlot === 0) activeIcon = 'apps';
   else if (activeSlot === 1) activeIcon = 'list';
   else if (activeSlot === 2) activeIcon = 'swap-horizontal';
-  else if (activeSlot === 3) activeIcon = 'layers';
+  else if (activeSlot === 3) activeIcon = 'calendar';
   else if (activeSlot === 4) activeIcon = 'person';
 
   // Saturated Vibrant Orange Color (100% matching user reference in orange)
@@ -297,16 +297,16 @@ export function FloatingTabBar({
             )}
           </TouchableOpacity>
 
-          {/* Slot 3: Work / Call Sheets (Tray Icon) */}
+          {/* Slot 3: Assigned Work Calendar */}
           <TouchableOpacity
             style={styles.slotBtn}
             onPress={() => navigateTo('work', 3)}
             activeOpacity={0.7}
             accessibilityRole="tab"
-            accessibilityLabel="Work and Call Sheets"
+            accessibilityLabel="Assigned Work Calendar"
           >
             {activeSlot !== 3 && (
-              <Ionicons name="layers-outline" size={23} color="#9E9EA7" />
+              <Ionicons name="calendar-outline" size={23} color="#9E9EA7" />
             )}
           </TouchableOpacity>
 

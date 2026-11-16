@@ -72,14 +72,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 4: Inbox */}
+      {/* Tab 4: Calendar */}
       <Tabs.Screen
         name="work"
         options={{
           headerShown: false,
-          title: 'Inbox',
+          title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-outline" size={size} color={String(color)} />
+            <Ionicons name="calendar-outline" size={size} color={String(color)} />
           ),
         }}
       />
