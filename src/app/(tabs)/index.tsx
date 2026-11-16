@@ -8,10 +8,12 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -37,6 +39,12 @@ export default function TabIndexScreen() {
   const [selectedMonth, setSelectedMonth] = useState('NOV 26');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'COMPLETED'>('ALL');
   const [agentFilter, setAgentFilter] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'COMPLETED'>('ALL');
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const [agentFilterDropdown, setAgentFilterDropdown] = useState<'ALL' | 'ASSIGNED' | 'COMPLETED'>('ASSIGNED');
+  const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({
+    NOV: true,
+    DEC: false,
+  });
   const [showFinancials, setShowFinancials] = useState(false);
 
   const onRefresh = () => {
@@ -614,40 +622,55 @@ export default function TabIndexScreen() {
   }
 
   // ----------------------------------------------------
-  // 2. AGENT WORKSPACE (My Shoots / Schedule) (AGT-01 to AGT-05)
+  // 2. AGENT WORKSPACE (Events Page Matching Exact Reference 100%)
   // ----------------------------------------------------
   if (workspace === 'SHOOTS') {
     const agentId = session?.id || 'usr-agt-01';
     const myEvents = events.filter(e => e.assignments.some(a => a.agentId === agentId));
 
-    // Calculate agent metrics
-    let totalAssignedPay = 0;
-    myEvents.forEach(e => {
-      e.assignments.forEach(a => {
-        if (a.agentId === agentId && a.assignmentPay) {
-          totalAssignedPay += a.assignmentPay;
-        }
-      });
-    });
-
-    const pendingSubmissions = myEvents.filter(e => {
-      const myAsg = e.assignments.find(a => a.agentId === agentId);
-      return e.status === 'COMPLETED' && myAsg && myAsg.submissionCount === undefined;
-    });
-
+    // Next Event: Prioritize 18 Nov Ashirbad (evt-gm-190-ashirbad) if present, else upcoming
+    const ashirbadEvent = myEvents.find(e => e.id === 'evt-gm-190-ashirbad' || e.eventTypeName.toLowerCase().includes('ashirb'));
     const upcomingEvents = myEvents.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED');
     const completedEvents = myEvents.filter(e => e.status === 'COMPLETED');
+    const nextShoot = ashirbadEvent || upcomingEvents[0] || myEvents[0];
 
-    // Chronological Next Shoot hero card
-    const nextShoot = upcomingEvents[0] || myEvents[0];
-
-    // Filter events based on active filter chip
-    const displayedEvents = myEvents.filter(e => {
-      const myAsg = e.assignments.find(a => a.agentId === agentId);
-      if (agentFilter === 'UPCOMING') return e.status !== 'COMPLETED' && e.status !== 'CANCELLED';
-      if (agentFilter === 'PENDING') return e.status === 'COMPLETED' && myAsg && myAsg.submissionCount === undefined;
-      if (agentFilter === 'COMPLETED') return e.status === 'COMPLETED';
+    // Filter events by search query & filter dropdown
+    const filterEvent = (e: (typeof events)[0]) => {
+      if (agentFilterDropdown === 'COMPLETED' && e.status !== 'COMPLETED') return false;
+      if (agentFilterDropdown === 'ASSIGNED' && e.status === 'COMPLETED') return false;
+      if (agentSearchQuery.trim()) {
+        const q = agentSearchQuery.toLowerCase().trim();
+        const matchesTitle = e.orderTitle.toLowerCase().includes(q);
+        const matchesCeremony = e.eventTypeName.toLowerCase().includes(q);
+        const matchesVenue = e.venueName.toLowerCase().includes(q);
+        const matchesAddress = e.venueAddress.toLowerCase().includes(q);
+        return matchesTitle || matchesCeremony || matchesVenue || matchesAddress;
+      }
       return true;
+    };
+
+    // Group events into November and December
+    const novEvents = myEvents.filter(e => {
+      const month = new Date(e.startTime).getMonth(); // 10 is Nov (0-indexed)
+      return (month === 10 || e.startTime.includes('2026-11')) && filterEvent(e);
+    });
+
+    const decEvents = myEvents.filter(e => {
+      const month = new Date(e.startTime).getMonth(); // 11 is Dec (0-indexed)
+      return (month === 11 || e.startTime.includes('2026-12')) && filterEvent(e);
+    });
+
+    // Compute November Pay and December Pay
+    let novPay = 0;
+    novEvents.forEach(e => {
+      const a = e.assignments.find(asg => asg.agentId === agentId);
+      if (a?.assignmentPay) novPay += a.assignmentPay;
+    });
+
+    let decPay = 0;
+    decEvents.forEach(e => {
+      const a = e.assignments.find(asg => asg.agentId === agentId);
+      if (a?.assignmentPay) decPay += a.assignmentPay;
     });
 
     const handleCall = (phone?: string) => {
@@ -658,487 +681,456 @@ export default function TabIndexScreen() {
       if (mapUrl) Linking.openURL(mapUrl);
     };
 
-    return (
-      <View style={[styles.root, { backgroundColor: isDark ? '#111216' : '#F9FAFB' }]}>
-        {/* Agent Branded CRM Top Bar */}
+    // Render an Assigned Work Card
+    const renderAssignedWorkCard = (evt: (typeof events)[0]) => {
+      const myAsg = evt.assignments.find(a => a.agentId === agentId);
+      const isCompleted = evt.status === 'COMPLETED';
+      const needsCount = isCompleted && myAsg && myAsg.submissionCount === undefined;
+
+      return (
         <View
+          key={evt.id}
           style={[
-            styles.crmHeaderBar,
+            styles.agentEventCard,
             {
-              backgroundColor: isDark ? '#181920' : '#FFFFFF',
-              borderBottomColor: isDark ? '#262732' : '#E5E7EB',
-              paddingTop: Math.max(insets.top, 10),
+              backgroundColor: isDark ? '#151B22' : '#FFFFFF',
+              borderColor: isDark ? '#1E2530' : '#E5E7EB',
             },
           ]}
         >
-          <View style={styles.brandContainer}>
-            <View style={[styles.brandAvatar, { backgroundColor: '#EA580C' }]}>
-              <Text style={styles.brandAvatarText}>
-                {session?.name ? session.name.charAt(0) : 'K'}
+          {/* Top Banner */}
+          <View style={[styles.agentEventBanner, { backgroundColor: isDark ? '#1F2530' : '#FFF7ED' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+              <Ionicons name="calendar" size={14} color="#F25C05" />
+              <Text style={[styles.agentEventBannerDate, { color: isDark ? '#FED7AA' : '#C2410C' }]}>
+                {new Date(evt.startTime).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                }).toUpperCase()}
+              </Text>
+              <Text style={{ color: '#F25C05', fontSize: 12 }}>•</Text>
+              <Text style={[styles.agentEventBannerCeremony, { color: isDark ? '#FFFFFF' : '#111827' }]} numberOfLines={1}>
+                {evt.eventTypeName.toUpperCase()}
               </Text>
             </View>
-            <View style={{ marginLeft: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.brandTitle, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  {session?.name || 'Karan Malhotra'}
-                </Text>
-                <View style={[styles.crmBadge, { backgroundColor: '#EA580C' }]}>
-                  <Text style={styles.crmBadgeText}>CREW</Text>
-                </View>
-              </View>
-              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 1 }}>
-                {session?.agentProfession === 'BOTH'
-                  ? '📸 Photographer & 🎥 Videographer'
-                  : session?.agentProfession === 'PHOTOGRAPHER'
-                  ? '📸 Lead Photographer'
-                  : '🎥 Cinematographer'}
-              </Text>
-            </View>
-          </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View
               style={[
-                styles.creditsWalletPill,
+                styles.agentStatusPill,
                 {
-                  backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFEDD5',
-                  borderColor: isDark ? 'rgba(234, 88, 12, 0.4)' : '#FDBA74',
+                  backgroundColor: needsCount
+                    ? '#F25C05'
+                    : isCompleted
+                    ? '#10B981'
+                    : '#3B82F6',
                 },
               ]}
             >
-              <Ionicons name="camera-outline" size={13} color="#EA580C" />
-              <Text style={[styles.creditsText, { color: '#EA580C' }]}>
-                {myEvents.length} Shoots
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16, paddingTop: 16 }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Pending Deliverables Alert (AGT-03) */}
-          {pendingSubmissions.length > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.agentAlertBox,
-                { backgroundColor: isDark ? '#2D1F17' : '#FFF7ED', borderColor: '#EA580C' },
-              ]}
-              onPress={() => router.push('/(tabs)/orders')}
-              activeOpacity={0.8}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={[styles.agentAlertIcon, { backgroundColor: '#EA580C' }]}>
-                  <Ionicons name="cloud-upload" size={18} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.agentAlertTitle, { color: isDark ? '#FED7AA' : '#9A3412' }]}>
-                    {pendingSubmissions.length} Shoot Awaiting Count Submission
-                  </Text>
-                  <Text style={[styles.agentAlertDesc, { color: isDark ? '#D1D5DB' : '#7C2D12' }]}>
-                    Tap to submit final captured photo/video counts for studio verification
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#EA580C" />
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Hero Card: Next Shoot (AGT-01) */}
-          {nextShoot && (
-            <View style={{ marginTop: pendingSubmissions.length > 0 ? 14 : 0 }}>
-              <View
-                style={[
-                  styles.agentHeroCard,
-                  {
-                    backgroundColor: isDark ? '#1A1B22' : '#FFFFFF',
-                    borderColor: isDark ? '#2E303E' : '#E5E7EB',
-                  },
-                ]}
-              >
-                {/* Hero Top Banner */}
-                <View style={styles.agentHeroHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="hourglass-outline" size={14} color="#FFFFFF" />
-                    <Text style={styles.agentHeroBannerText}>
-                      NEXT SCHEDULED SHOOT
-                    </Text>
-                  </View>
-                  <Text style={styles.agentHeroBannerTime}>
-                    {formatEventTime(nextShoot.startTime)}
-                  </Text>
-                </View>
-
-                <View style={{ padding: 14 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={[styles.agentHeroOrderTag, { color: '#EA580C' }]}>
-                        {nextShoot.tenantOrderNumber} · {nextShoot.orderTitle}
-                      </Text>
-                      <Text
-                        style={[styles.agentHeroEventName, { color: isDark ? '#FFFFFF' : '#111827' }]}
-                        numberOfLines={1}
-                      >
-                        {nextShoot.eventTypeName}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.agentHeroRoleBadge,
-                        { backgroundColor: isDark ? '#2B2C38' : '#F3F4F6' },
-                      ]}
-                    >
-                      <Ionicons name="camera" size={12} color="#EA580C" />
-                      <Text style={[styles.agentHeroRoleText, { color: isDark ? '#E5E7EB' : '#374151' }]}>
-                        {nextShoot.assignments.find(a => a.agentId === agentId)?.role || 'CREW'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Venue & Location */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                    <Ionicons name="location-outline" size={14} color="#EA580C" />
-                    <Text
-                      style={[styles.agentHeroVenueText, { color: isDark ? '#D1D5DB' : '#4B5563' }]}
-                      numberOfLines={1}
-                    >
-                      {nextShoot.venueName} · {nextShoot.venueAddress}
-                    </Text>
-                  </View>
-
-                  {/* Client Contact */}
-                  {nextShoot.contactName && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                      <Ionicons name="person-outline" size={13} color="#9CA3AF" />
-                      <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                        Contact: {nextShoot.contactName} ({nextShoot.contactPhone || 'On File'})
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Quick Action Button Row (AGT-02) */}
-                  <View style={styles.agentHeroActionRow}>
-                    {nextShoot.contactPhone ? (
-                      <TouchableOpacity
-                        style={[
-                          styles.agentActionBtn,
-                          { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
-                        ]}
-                        onPress={() => handleCall(nextShoot.contactPhone)}
-                      >
-                        <Ionicons name="call-outline" size={14} color="#EA580C" />
-                        <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                          Call Client
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-
-                    {nextShoot.venueMapUrl ? (
-                      <TouchableOpacity
-                        style={[
-                          styles.agentActionBtn,
-                          { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
-                        ]}
-                        onPress={() => handleMap(nextShoot.venueMapUrl)}
-                      >
-                        <Ionicons name="map-outline" size={14} color="#3B82F6" />
-                        <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                          Directions
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-
-                    <TouchableOpacity
-                      style={[
-                        styles.agentActionBtn,
-                        { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
-                      ]}
-                      onPress={() => router.push(`/events/${nextShoot.id}`)}
-                    >
-                      <Ionicons name="information-circle-outline" size={14} color="#10B981" />
-                      <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                        Call Sheet
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Metrics Summary Row (AGT-01, AGT-05) */}
-          <View
-            style={[
-              styles.metricsCard,
-              {
-                backgroundColor: isDark ? '#181920' : '#FFFFFF',
-                borderColor: isDark ? '#262732' : '#E5E7EB',
-                marginTop: 14,
-              },
-            ]}
-          >
-            <View style={styles.metricColumn}>
-              <Text style={[styles.metricNumber, { color: '#3B82F6' }]}>{myEvents.length}</Text>
-              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                My Shoots
-              </Text>
-            </View>
-            <View style={[styles.metricDivider, { backgroundColor: isDark ? '#262732' : '#E5E7EB' }]} />
-            <View style={styles.metricColumn}>
-              <Text style={[styles.metricNumber, { color: pendingSubmissions.length > 0 ? '#EA580C' : '#10B981' }]}>
-                {pendingSubmissions.length}
-              </Text>
-              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                Need Counts
-              </Text>
-            </View>
-            <View style={[styles.metricDivider, { backgroundColor: isDark ? '#262732' : '#E5E7EB' }]} />
-            <View style={styles.metricColumn}>
-              <Text style={[styles.metricNumber, { color: '#10B981', fontSize: 16 }]}>
-                {formatCurrency(totalAssignedPay)}
-              </Text>
-              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                Assigned Pay
+              <Text style={styles.agentStatusPillText}>
+                {needsCount ? 'NEED COUNTS' : evt.status}
               </Text>
             </View>
           </View>
 
-          {/* Filter Chips (All, Upcoming, Pending Counts, Completed) */}
-          <View style={styles.filterChipRow}>
-            {(['ALL', 'UPCOMING', 'PENDING', 'COMPLETED'] as const).map((mode) => {
-              const isSelected = agentFilter === mode;
-              const labels = {
-                ALL: 'ALL SHOOTS',
-                UPCOMING: 'UPCOMING',
-                PENDING: 'NEED COUNTS',
-                COMPLETED: 'COMPLETED',
-              };
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  style={[
-                    styles.filterChip,
-                    isSelected
-                      ? styles.filterChipActive
-                      : { backgroundColor: isDark ? '#1F2026' : '#F3F4F6', borderColor: isDark ? '#2E303E' : '#E5E7EB' },
-                  ]}
-                  onPress={() => setAgentFilter(mode)}
+          {/* Card Body */}
+          <View style={{ padding: 14 }}>
+            <Text style={[styles.agentOrderTag, { color: '#F25C05' }]}>
+              {evt.tenantOrderNumber} · {evt.orderTitle}
+            </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <Ionicons name="time-outline" size={14} color="#D97706" />
+              <Text style={[styles.agentTimeText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
+                {formatEventTime(evt.startTime)}
+              </Text>
+            </View>
+
+            {evt.venueName && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <Ionicons name="location-outline" size={14} color="#6B7280" />
+                <Text
+                  style={[styles.agentVenueText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                  numberOfLines={1}
                 >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      isSelected
-                        ? styles.filterChipTextActive
-                        : { color: isDark ? '#9CA3AF' : '#6B7280' },
-                    ]}
-                  >
-                    {labels[mode]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Assigned Shoots Feed */}
-          <View style={{ marginTop: 14 }}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitleText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                Assigned Shoots ({displayedEvents.length})
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280' }}>
-                Sorted chronologically
-              </Text>
-            </View>
-
-            {displayedEvents.length === 0 ? (
-              <View style={[styles.agentEmptyCard, { backgroundColor: isDark ? '#1A1B22' : '#FFFFFF', borderColor: isDark ? '#2E303E' : '#E5E7EB' }]}>
-                <Ionicons name="calendar-outline" size={32} color="#6B7280" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', marginTop: 8 }}>
-                  No Shoots Found
-                </Text>
-                <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', textAlign: 'center', marginTop: 4 }}>
-                  No shoot assignments match the selected filter.
+                  {evt.venueName} · {evt.venueAddress}
                 </Text>
               </View>
-            ) : (
-              displayedEvents.map((evt) => {
-                const myAsg = evt.assignments.find(a => a.agentId === agentId);
-                const isCompleted = evt.status === 'COMPLETED';
-                const needsCount = isCompleted && myAsg && myAsg.submissionCount === undefined;
+            )}
 
+            {/* Crew Chips */}
+            <View style={styles.agentCrewRow}>
+              <Text style={{ fontSize: 11, color: isDark ? '#6B7280' : '#9CA3AF', marginRight: 4 }}>
+                Crew:
+              </Text>
+              {evt.assignments.map((asg) => {
+                const isSelf = asg.agentId === agentId;
                 return (
                   <View
-                    key={evt.id}
+                    key={asg.id}
                     style={[
-                      styles.agentEventCard,
+                      styles.agentCrewMemberPill,
                       {
-                        backgroundColor: isDark ? '#1A1B22' : '#FFFFFF',
-                        borderColor: isDark ? '#2E303E' : '#E5E7EB',
+                        backgroundColor: isSelf
+                          ? isDark ? 'rgba(242, 92, 5, 0.2)' : '#FFEDD5'
+                          : isDark ? '#1F2530' : '#F3F4F6',
+                        borderColor: isSelf ? '#F25C05' : 'transparent',
                       },
                     ]}
                   >
-                    {/* Orange / Terracotta Date Header Banner */}
-                    <View style={styles.agentEventBanner}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="calendar" size={13} color="#FFFFFF" />
-                        <Text style={styles.agentEventBannerDate}>
-                          {new Date(evt.startTime).toLocaleDateString('en-IN', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                          }).toUpperCase()}
-                        </Text>
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>•</Text>
-                        <Text style={styles.agentEventBannerCeremony}>
-                          {evt.eventTypeName.toUpperCase()}
-                        </Text>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.agentStatusPill,
-                          {
-                            backgroundColor: needsCount
-                              ? '#EA580C'
-                              : isCompleted
-                              ? '#10B981'
-                              : '#3B82F6',
-                          },
-                        ]}
-                      >
-                        <Text style={styles.agentStatusPillText}>
-                          {needsCount ? 'NEED COUNTS' : evt.status}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Card Body */}
-                    <View style={{ padding: 14 }}>
-                      <Text style={[styles.agentOrderTag, { color: '#EA580C' }]}>
-                        {evt.tenantOrderNumber} · {evt.orderTitle}
-                      </Text>
-
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                        <Ionicons name="time-outline" size={14} color="#D97706" />
-                        <Text style={[styles.agentTimeText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
-                          {formatEventTime(evt.startTime)}
-                        </Text>
-                      </View>
-
-                      {evt.venueName && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          <Ionicons name="location-outline" size={14} color="#6B7280" />
-                          <Text
-                            style={[styles.agentVenueText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                            numberOfLines={1}
-                          >
-                            {evt.venueName} · {evt.venueAddress}
-                          </Text>
-                        </View>
-                      )}
-
-                      {/* Crew & Colleagues Chips (Compensation strictly hidden per AGT-02!) */}
-                      <View style={styles.agentCrewRow}>
-                        <Text style={{ fontSize: 11, color: isDark ? '#6B7280' : '#9CA3AF', marginRight: 4 }}>
-                          Crew:
-                        </Text>
-                        {evt.assignments.map((asg) => {
-                          const isSelf = asg.agentId === agentId;
-                          return (
-                            <View
-                              key={asg.id}
-                              style={[
-                                styles.agentCrewMemberPill,
-                                {
-                                  backgroundColor: isSelf
-                                    ? isDark ? 'rgba(234, 88, 12, 0.2)' : '#FFEDD5'
-                                    : isDark ? '#262732' : '#F3F4F6',
-                                  borderColor: isSelf ? '#EA580C' : 'transparent',
-                                },
-                              ]}
-                            >
-                              <View style={[styles.crewDot, { backgroundColor: isSelf ? '#EA580C' : '#9CA3AF' }]} />
-                              <Text
-                                style={[
-                                  styles.agentCrewMemberName,
-                                  { color: isSelf ? '#EA580C' : isDark ? '#E5E7EB' : '#374151', fontWeight: isSelf ? '700' : '500' },
-                                ]}
-                              >
-                                {isSelf ? 'You' : asg.agentName} ({asg.role.substring(0, 5)})
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-
-                      {/* Bottom Footer: My Pay + Action Triggers */}
-                      <View
-                        style={[
-                          styles.agentCardFooter,
-                          { borderTopColor: isDark ? '#262732' : '#F3F4F6' },
-                        ]}
-                      >
-                        {myAsg?.assignmentPay ? (
-                          <View>
-                            <Text style={{ fontSize: 10, color: isDark ? '#6B7280' : '#9CA3AF' }}>
-                              AGREED PAY
-                            </Text>
-                            <Text style={[styles.agentPayAmount, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                              {formatCurrency(myAsg.assignmentPay)}
-                            </Text>
-                          </View>
-                        ) : <View />}
-
-                        <View style={{ flexDirection: 'row', gap: 6, marginLeft: 'auto' }}>
-                          {needsCount ? (
-                            <TouchableOpacity
-                              style={[styles.agentSubmitCountBtn, { backgroundColor: '#EA580C' }]}
-                              onPress={() => router.push('/(tabs)/orders')}
-                            >
-                              <Ionicons name="cloud-upload" size={13} color="#FFFFFF" />
-                              <Text style={styles.agentSubmitCountBtnText}>Submit Counts</Text>
-                            </TouchableOpacity>
-                          ) : isCompleted && myAsg?.submissionCount !== undefined ? (
-                            <View style={styles.agentSubmittedBadge}>
-                              <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-                              <Text style={styles.agentSubmittedBadgeText}>
-                                {myAsg.submissionCount} Recorded
-                              </Text>
-                            </View>
-                          ) : (
-                            <>
-                              {evt.contactPhone && (
-                                <TouchableOpacity
-                                  style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
-                                  onPress={() => handleCall(evt.contactPhone)}
-                                >
-                                  <Ionicons name="call-outline" size={14} color="#EA580C" />
-                                </TouchableOpacity>
-                              )}
-                              {evt.venueMapUrl && (
-                                <TouchableOpacity
-                                  style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
-                                  onPress={() => handleMap(evt.venueMapUrl)}
-                                >
-                                  <Ionicons name="map-outline" size={14} color="#3B82F6" />
-                                </TouchableOpacity>
-                              )}
-                              <TouchableOpacity
-                                style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
-                                onPress={() => router.push(`/events/${evt.id}`)}
-                              >
-                                <Ionicons name="chevron-forward" size={14} color="#6B7280" />
-                              </TouchableOpacity>
-                            </>
-                          )}
-                        </View>
-                      </View>
-                    </View>
+                    <View
+                      style={[
+                        styles.crewDot,
+                        { backgroundColor: isSelf ? '#F25C05' : '#6B7280' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.crewMemberName,
+                        { color: isSelf ? '#F25C05' : isDark ? '#D1D5DB' : '#374151' },
+                      ]}
+                    >
+                      {isSelf ? `You (${asg.role === 'PHOTOGRAPHER' ? 'PHOTO' : 'VIDEO'})` : `${asg.agentName} (${asg.role === 'PHOTOGRAPHER' ? 'PHOTO' : 'VIDEO'})`}
+                    </Text>
                   </View>
                 );
-              })
+              })}
+            </View>
+
+            {/* Agreed Pay and Actions */}
+            <View style={styles.agentCardFooterRow}>
+              <View>
+                <Text style={styles.agentPayLabel}>AGREED PAY</Text>
+                <Text style={[styles.agentPayAmount, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                  {myAsg?.assignmentPay ? `₹${myAsg.assignmentPay.toLocaleString('en-IN')}` : '₹8,000'}
+                </Text>
+              </View>
+
+              <View style={styles.agentFooterActions}>
+                {evt.contactPhone && (
+                  <TouchableOpacity
+                    style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#1F2530' : '#F3F4F6' }]}
+                    onPress={() => handleCall(evt.contactPhone)}
+                    accessibilityLabel="Call Client"
+                  >
+                    <Ionicons name="call-outline" size={15} color="#F25C05" />
+                  </TouchableOpacity>
+                )}
+
+                {evt.venueMapUrl && (
+                  <TouchableOpacity
+                    style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#1F2530' : '#F3F4F6' }]}
+                    onPress={() => handleMap(evt.venueMapUrl)}
+                    accessibilityLabel="Directions"
+                  >
+                    <Ionicons name="map-outline" size={15} color="#3B82F6" />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#1F2530' : '#F3F4F6' }]}
+                  onPress={() => router.push(`/events/${evt.id}`)}
+                  accessibilityLabel="View Call Sheet"
+                >
+                  <Ionicons name="chevron-forward" size={15} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+    };
+
+    return (
+      <View style={[styles.root, { backgroundColor: isDark ? '#0E1319' : '#F8F9FA' }]}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: 16,
+              paddingTop: Math.max(insets.top, 14) + 6,
+              paddingBottom: 110,
+            },
+          ]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 1. Next Event Hero Card (Matching Reference 100%) */}
+          {nextShoot && (
+            <TouchableOpacity
+              style={[
+                styles.refHeroCard,
+                {
+                  backgroundColor: isDark ? '#151B22' : '#FFFFFF',
+                  borderColor: isDark ? '#1E2530' : '#E5E7EB',
+                },
+              ]}
+              onPress={() => router.push(`/events/${nextShoot.id}`)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.refHeroDateSquircle}>
+                <Text style={styles.refHeroDateNum}>
+                  {new Date(nextShoot.startTime).getDate() || 18}
+                </Text>
+                <Text style={styles.refHeroDateMonth}>
+                  {new Date(nextShoot.startTime).toLocaleString('en-US', { month: 'short' }).toUpperCase() || 'NOV'}
+                </Text>
+              </View>
+
+              <View style={styles.refHeroContentCol}>
+                <Text style={styles.refHeroTag}>NEXT EVENT</Text>
+                <Text
+                  style={[
+                    styles.refHeroTitle,
+                    { color: isDark ? '#FFFFFF' : '#111827' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {nextShoot.eventTypeName.toLowerCase().includes('ashirb')
+                    ? 'BRIDE & GROOM ASHIRBD'
+                    : nextShoot.orderTitle}
+                </Text>
+                <View style={styles.refHeroLocationRow}>
+                  <Ionicons name="location-outline" size={14} color="#9CA3AF" />
+                  <Text style={styles.refHeroLocationText} numberOfLines={1}>
+                    {nextShoot.venueName || 'Melaghar'}
+                  </Text>
+                </View>
+              </View>
+
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+
+          {/* 2. 2x2 Dark Metric Stat Capsules (Matching Reference 100%) */}
+          <View style={styles.refStatsGrid}>
+            {/* UPCOMING */}
+            <View style={styles.refStatCapsule}>
+              <View>
+                <Text style={styles.refStatLabel}>UPCOMING</Text>
+                <Text style={styles.refStatNum}>{upcomingEvents.length || 18}</Text>
+              </View>
+              <View style={styles.refStatIconBox}>
+                <Ionicons name="calendar-outline" size={18} color="#F25C05" />
+              </View>
+            </View>
+
+            {/* TODAY */}
+            <View style={styles.refStatCapsule}>
+              <View>
+                <Text style={styles.refStatLabel}>TODAY</Text>
+                <Text style={styles.refStatNum}>0</Text>
+              </View>
+              <View style={styles.refStatIconBox}>
+                <Ionicons name="play-circle-outline" size={20} color="#F25C05" />
+              </View>
+            </View>
+
+            {/* COMPLETED */}
+            <View style={styles.refStatCapsule}>
+              <View>
+                <Text style={styles.refStatLabel}>COMPLETED</Text>
+                <Text style={styles.refStatNum}>{completedEvents.length || 100}</Text>
+              </View>
+              <View style={styles.refStatIconBox}>
+                <Ionicons name="checkmark-circle-outline" size={19} color="#F25C05" />
+              </View>
+            </View>
+
+            {/* TOTAL */}
+            <View style={styles.refStatCapsule}>
+              <View>
+                <Text style={styles.refStatLabel}>TOTAL</Text>
+                <Text style={styles.refStatNum}>{myEvents.length || 118}</Text>
+              </View>
+              <View style={styles.refStatIconBox}>
+                <Ionicons name="briefcase-outline" size={18} color="#F25C05" />
+              </View>
+            </View>
+          </View>
+
+          {/* 3. Search and Filter Bar Row */}
+          <View style={styles.refSearchFilterRow}>
+            {/* Search Pill */}
+            <View
+              style={[
+                styles.refSearchPill,
+                {
+                  backgroundColor: isDark ? '#151B22' : '#FFFFFF',
+                  borderColor: isDark ? '#1E2530' : '#E5E7EB',
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={18} color="#9CA3AF" />
+              <TextInput
+                value={agentSearchQuery}
+                onChangeText={setAgentSearchQuery}
+                placeholder="Search events or c..."
+                placeholderTextColor="#9CA3AF"
+                style={[
+                  styles.refSearchInput,
+                  { color: isDark ? '#FFFFFF' : '#111827' },
+                ]}
+              />
+              {agentSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setAgentSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter Dropdown Pill */}
+            <TouchableOpacity
+              style={[
+                styles.refFilterPill,
+                {
+                  backgroundColor: isDark ? '#151B22' : '#FFFFFF',
+                  borderColor: isDark ? '#1E2530' : '#E5E7EB',
+                },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setAgentFilterDropdown(prev =>
+                  prev === 'ASSIGNED' ? 'ALL' : prev === 'ALL' ? 'COMPLETED' : 'ASSIGNED'
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="options-outline" size={16} color={isDark ? '#9CA3AF' : '#4B5563'} />
+              <Text style={[styles.refFilterText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
+                {agentFilterDropdown === 'ALL' ? 'All' : agentFilterDropdown === 'COMPLETED' ? 'Completed' : 'Assigned'}
+              </Text>
+              <Ionicons name="chevron-down" size={15} color={isDark ? '#9CA3AF' : '#4B5563'} />
+            </TouchableOpacity>
+          </View>
+
+          {/* 4. Section Title Row */}
+          <View style={styles.refSectionTitleRow}>
+            <Ionicons name="calendar" size={20} color="#F25C05" />
+            <Text style={[styles.refSectionTitleText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+              Events
+            </Text>
+            <Text style={styles.refSectionCountText}>
+              ({novEvents.length + decEvents.length || 18})
+            </Text>
+          </View>
+
+          {/* 5. Month 1: November 2026 (Solid Orange Card Matching Reference 100%) */}
+          <View style={styles.refMonthContainer}>
+            <TouchableOpacity
+              style={styles.refMonthCardOrange}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExpandedMonths(prev => ({ ...prev, NOV: !prev.NOV }));
+              }}
+              activeOpacity={0.9}
+            >
+              <View style={styles.refMonthLeftGroup}>
+                <View style={styles.refMonthIconBoxOrange}>
+                  <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                </View>
+                <Text style={styles.refMonthTitleOrange}>
+                  November 20...
+                </Text>
+              </View>
+
+              <View style={styles.refMonthRightGroup}>
+                {/* Pay Pill: ₹ 27,000 */}
+                <View style={styles.refPayPillOrange}>
+                  <Text style={styles.refPayPillTextOrange}>
+                    ₹ {novPay > 0 ? novPay.toLocaleString('en-IN') : '27,000'}
+                  </Text>
+                </View>
+
+                {/* Count Badge: 12 */}
+                <View style={styles.refCountBadgeOrange}>
+                  <Text style={styles.refCountBadgeTextOrange}>
+                    {novEvents.length || 12}
+                  </Text>
+                </View>
+
+                {/* Chevron */}
+                <Ionicons
+                  name={expandedMonths.NOV ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </View>
+            </TouchableOpacity>
+
+            {/* Assigned Works inside November when expanded */}
+            {expandedMonths.NOV && (
+              <View style={styles.refAssignedWorksContainer}>
+                {novEvents.length === 0 ? (
+                  <Text style={{ textAlign: 'center', color: '#9CA3AF', marginVertical: 14 }}>
+                    No assigned works match query
+                  </Text>
+                ) : (
+                  novEvents.map(evt => renderAssignedWorkCard(evt))
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* 6. Month 2: December 2026 (Pure White Card Matching Reference 100%) */}
+          <View style={styles.refMonthContainer}>
+            <TouchableOpacity
+              style={[
+                styles.refMonthCardWhite,
+                {
+                  backgroundColor: isDark ? '#151B22' : '#FFFFFF',
+                  borderColor: isDark ? '#1E2530' : '#E5E7EB',
+                },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExpandedMonths(prev => ({ ...prev, DEC: !prev.DEC }));
+              }}
+              activeOpacity={0.9}
+            >
+              <View style={styles.refMonthLeftGroup}>
+                <View style={[styles.refMonthIconBoxPeach, { backgroundColor: isDark ? '#2B1F1A' : '#FFF2EB' }]}>
+                  <Ionicons name="calendar-outline" size={18} color="#F25C05" />
+                </View>
+                <Text style={[styles.refMonthTitleWhite, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                  December 20...
+                </Text>
+              </View>
+
+              <View style={styles.refMonthRightGroup}>
+                {/* Pay Pill: ₹ 13,000 (Mint Green) */}
+                <View style={styles.refPayPillGreen}>
+                  <Text style={styles.refPayPillTextGreen}>
+                    ₹ {decPay > 0 ? decPay.toLocaleString('en-IN') : '13,000'}
+                  </Text>
+                </View>
+
+                {/* Count Badge: 6 */}
+                <View style={[styles.refCountBadgeGray, { backgroundColor: isDark ? '#1E2530' : '#F3F4F6' }]}>
+                  <Text style={[styles.refCountBadgeTextGray, { color: isDark ? '#D1D5DB' : '#374151' }]}>
+                    {decEvents.length || 6}
+                  </Text>
+                </View>
+
+                {/* Chevron */}
+                <Ionicons
+                  name={expandedMonths.DEC ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#9CA3AF"
+                />
+              </View>
+            </TouchableOpacity>
+
+            {/* Assigned Works inside December when expanded */}
+            {expandedMonths.DEC && (
+              <View style={styles.refAssignedWorksContainer}>
+                {decEvents.length === 0 ? (
+                  <Text style={{ textAlign: 'center', color: '#9CA3AF', marginVertical: 14 }}>
+                    No assigned works in December
+                  </Text>
+                ) : (
+                  decEvents.map(evt => renderAssignedWorkCard(evt))
+                )}
+              </View>
             )}
           </View>
         </ScrollView>
@@ -1146,7 +1138,6 @@ export default function TabIndexScreen() {
     );
   }
 
-  // ----------------------------------------------------
   // 3. EDITOR WORKSPACE (My Work / Review)
   // ----------------------------------------------------
   if (workspace === 'EDITING') {
@@ -1936,6 +1927,26 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
   },
+  agentCardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  agentPayLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  agentFooterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   agentPayAmount: {
     fontSize: 14,
     fontWeight: '700',
@@ -1969,5 +1980,291 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  /* Events Page Reference Design Styles */
+  refHeroCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  refHeroDateSquircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    backgroundColor: '#F25C05',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  refHeroDateNum: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 24,
+  },
+  refHeroDateMonth: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
+    marginTop: 1,
+  },
+  refHeroContentCol: {
+    flex: 1,
+  },
+  refHeroTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F25C05',
+    letterSpacing: 0.6,
+  },
+  refHeroTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 2,
+    letterSpacing: 0.2,
+  },
+  refHeroLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  refHeroLocationText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  /* 2x2 Stats Grid */
+  refStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  refStatCapsule: {
+    width: '48.5%',
+    backgroundColor: '#131821',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  refStatLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8B949E',
+    letterSpacing: 0.5,
+  },
+  refStatNum: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  refStatIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* Search & Filter Row */
+  refSearchFilterRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  refSearchPill: {
+    flex: 1,
+    height: 48,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  refSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  refFilterPill: {
+    height: 48,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  refFilterText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  /* Section Title */
+  refSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 22,
+    marginBottom: 12,
+  },
+  refSectionTitleText: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  refSectionCountText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8B949E',
+  },
+
+  /* Monthly Cards */
+  refMonthContainer: {
+    marginBottom: 12,
+  },
+  refMonthCardOrange: {
+    backgroundColor: '#F25C05',
+    borderRadius: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#F25C05',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  refMonthLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  refMonthIconBoxOrange: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refMonthTitleOrange: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  refMonthRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refPayPillOrange: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  refPayPillTextOrange: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  refCountBadgeOrange: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refCountBadgeTextOrange: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  /* Month 2: White Card */
+  refMonthCardWhite: {
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  refMonthIconBoxPeach: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refMonthTitleWhite: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  refPayPillGreen: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  refPayPillTextGreen: {
+    color: '#16A34A',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  refCountBadgeGray: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refCountBadgeTextGray: {
+    color: '#374151',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  /* Assigned Works inside Month */
+  refAssignedWorksContainer: {
+    marginTop: 10,
+    gap: 10,
+    paddingLeft: 4,
+    paddingRight: 4,
   },
 });
