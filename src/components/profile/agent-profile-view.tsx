@@ -216,7 +216,9 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                 ]}
               >
                 <Text style={[styles.heroRolePillText, { color: themeColors.badgeText }]} numberOfLines={1}>
-                  {session?.agentProfession === 'BOTH'
+                  {session?.roles.includes('EDITOR')
+                    ? '🎬 Lead Video Editor & Colorist'
+                    : session?.agentProfession === 'BOTH'
                     ? '📸 Lead Photographer & Cinematographer'
                     : '📸 Lead Photographer'}
                 </Text>
@@ -441,8 +443,12 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
               <Ionicons name="camera-outline" size={18} color={themeColors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Camera Kit & Gear Locker</Text>
-              <Text style={[styles.capsuleRowSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>{gearKit}</Text>
+              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>
+                {session?.roles.includes('EDITOR') ? 'Editing Suite & Software' : 'Camera Kit & Gear Locker'}
+              </Text>
+              <Text style={[styles.capsuleRowSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                {session?.roles.includes('EDITOR') ? 'DaVinci Resolve Studio · Premiere Pro · After Effects' : gearKit}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.textSecondary} />
           </TouchableOpacity>

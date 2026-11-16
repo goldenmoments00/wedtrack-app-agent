@@ -5,21 +5,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Platform,
+  Animated,
   Modal,
   Pressable,
-  Animated,
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
-import { useTheme } from '@/hooks/use-theme';
-import { WorkspaceMode } from '@/types/auth';
 
 export interface FloatingTabBarProps {
   state: any;
@@ -38,322 +34,303 @@ export function FloatingTabBar({
   emitter,
 }: FloatingTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
-  const {
-    session,
-    permissions,
-    switchWorkspace,
-    switchDemoPersona,
-    currentPersona,
-    mode,
-  } = useAuth();
+  const { session, switchWorkspace } = useAuth();
   const router = useRouter();
 
-  // Quick Action Hub modal state
-  const [hubVisible, setHubVisible] = useState(false);
+  const workspace = session?.activeWorkspace || 'SHOOTS';
+  const isAgent = workspace === 'SHOOTS';
+  const isEditor = workspace === 'EDITING';
 
-  // Measure tab dimensions for dynamic animated curve
-  const [tabBarWidth, setTabBarWidth] = useState(Dimensions.get('window').width - 28);
-  const [tabLayouts, setTabLayouts] = useState<{ [key: number]: { x: number; width: number } }>({});
+  // Screen width measurement
+  const screenWidth = Dimensions.get('window').width;
+  const [barWidth, setBarWidth] = useState(screenWidth);
 
-  // Animated position for the glowing arch indicator
-  const indicatorAnim = useRef(new Animated.Value(0)).current;
-
-  // Filter visible routes (exclude href: null)
-  const visibleRoutes = state.routes.filter((route: any) => {
-    const { options } = descriptors[route.key];
-    return options?.href !== null;
+  // Active Tab Index (0 to 4)
+  // 0: Events (index)
+  // 1: Deliverables (orders)
+  // 2: Switch Button (center action)
+  // 3: Work (work)
+  // 4: Profile (more)
+  const [activeSlot, setActiveSlot] = useState<number>(() => {
+    const curRoute = state.routes[state.index]?.name;
+    if (curRoute === 'index') return 0;
+    if (curRoute === 'orders') return 1;
+    if (curRoute === 'work') return 3;
+    if (curRoute === 'more') return 4;
+    return 0;
   });
 
-  // Determine current active index within visible routes
-  const currentRoute = state.routes[state.index];
-  const activeVisibleIndex = Math.max(
-    0,
-    visibleRoutes.findIndex((r: any) => r.key === currentRoute?.key)
-  );
-
-  // Update animated indicator when active index or layout changes
+  // Keep activeSlot in sync with navigation state
   useEffect(() => {
-    const activeLayout = tabLayouts[activeVisibleIndex];
-    if (activeLayout) {
-      const targetCenter = activeLayout.x + activeLayout.width / 2;
-      Animated.spring(indicatorAnim, {
-        toValue: targetCenter,
-        damping: 18,
-        mass: 0.8,
-        stiffness: 160,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [activeVisibleIndex, tabLayouts]);
+    const curRoute = state.routes[state.index]?.name;
+    if (curRoute === 'index') setActiveSlot(0);
+    else if (curRoute === 'orders') setActiveSlot(1);
+    else if (curRoute === 'work') setActiveSlot(3);
+    else if (curRoute === 'more') setActiveSlot(4);
+  }, [state.index]);
 
-  const handleTabPress = (route: any, isFocused: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Toast notification on mode switch
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastFade = useRef(new Animated.Value(0)).current;
 
-    let defaultPrevented = false;
-    if (emitter) {
-      const event = emitter.emit({
-        type: 'tabPress',
-        target: route.key,
-        canPreventDefault: true,
-      });
-      defaultPrevented = !!event?.defaultPrevented;
-    } else if (navigation) {
-      const event = navigation.emit({
-        type: 'tabPress',
-        target: route.key,
-        canPreventDefault: true,
-      });
-      defaultPrevented = !!event?.defaultPrevented;
-    }
+  // Persona Switcher modal
+  const [hubVisible, setHubVisible] = useState(false);
 
-    if (!isFocused && !defaultPrevented) {
-      if (navigateToTab) {
-        navigateToTab(route.key);
-      } else if (navigation) {
-        navigation.navigate(route.name, route.params);
-      }
-    }
+  // Slot calculations: 5 evenly spaced slots across screen
+  const slotWidth = barWidth / 5;
+  const getSlotCenterX = (slot: number) => slotWidth * (slot + 0.5);
+
+  // Animated X position for the liquid notch and floating circle
+  const notchAnim = useRef(new Animated.Value(getSlotCenterX(activeSlot))).current;
+  const [currentNotchX, setCurrentNotchX] = useState(getSlotCenterX(activeSlot));
+
+  useEffect(() => {
+    const targetX = getSlotCenterX(activeSlot);
+    Animated.spring(notchAnim, {
+      toValue: targetX,
+      damping: 18,
+      mass: 0.7,
+      stiffness: 170,
+      useNativeDriver: false,
+    }).start();
+  }, [activeSlot, barWidth]);
+
+  useEffect(() => {
+    const listenerId = notchAnim.addListener(({ value }) => {
+      setCurrentNotchX(value);
+    });
+    return () => notchAnim.removeListener(listenerId);
+  }, []);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    Animated.sequence([
+      Animated.timing(toastFade, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(toastFade, { toValue: 0, duration: 240, useNativeDriver: true }),
+    ]).start(() => setToastMessage(null));
   };
 
-  const handleHubPress = () => {
+  const handleSwitchMode = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setHubVisible(true);
+    setActiveSlot(2);
+
+    if (isAgent) {
+      await switchWorkspace('EDITING');
+      showToast('Switched to Editor Mode (Vikram Das)');
+    } else {
+      await switchWorkspace('SHOOTS');
+      showToast('Switched to Agent Mode (Karan Malhotra)');
+    }
   };
 
-  // Check if a tab should display a notification badge dot
-  const hasBadge = (routeName: string) => {
-    if (routeName === 'orders' && session?.activeWorkspace === 'SHOOTS') {
-      return true; // Agent has pending deliverables to submit
+  const navigateTo = (routeName: string, slotIndex: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveSlot(slotIndex);
+
+    const targetRoute = state.routes.find((r: any) => r.name === routeName);
+    if (!targetRoute) return;
+
+    if (navigateToTab) {
+      navigateToTab(targetRoute.key);
+    } else if (navigation) {
+      navigation.navigate(targetRoute.name, targetRoute.params);
     }
-    if (routeName === 'work' && session?.activeWorkspace === 'EDITING') {
-      return true; // Editor has review revisions pending
-    }
-    return false;
   };
 
-  // Continuous smoothly rounded dome arch matching reference design:
-  const barHeight = 68;
-  const baselineY = 58;
-  const archTopY = 6;
-  const archSpan = 44; // Half-width of arch from center to baseline foot
-  const midSpan = 22;  // Half-width at inflection point
+  // Dimensions & Pure Liquid Notch SVG Path
+  const totalBarHeight = 68 + Math.max(insets.bottom, 12);
+  const topY = 18;
+  const scoopDepth = 48;
+  const scoopSpan = 38; // half-span of scoop
 
-  // Active center X
-  const activeLayout = tabLayouts[activeVisibleIndex];
-  const activeCenterX = activeLayout ? activeLayout.x + activeLayout.width / 2 : 100;
+  const leftShoulder = currentNotchX - scoopSpan;
+  const rightShoulder = currentNotchX + scoopSpan;
 
-  const xLeftBase = Math.max(50, activeCenterX - archSpan);
-  const xLeftMid = Math.max(50, activeCenterX - midSpan);
-  const xRightMid = Math.min(tabBarWidth - 12, activeCenterX + midSpan);
-  const xRightBase = Math.min(tabBarWidth - 12, activeCenterX + archSpan);
-
-  // Smooth continuous Bézier wave curve with perfectly rounded dome summit:
-  // Runs along baseline, smoothly peels up, forms a continuous round dome over the active tab,
-  // curves smoothly down, flares out, and runs horizontally across the bottom under remaining tabs!
-  const curvePath = `
-    M 50 ${baselineY}
-    L ${xLeftBase} ${baselineY}
-    C ${xLeftBase + 8} ${baselineY}, ${xLeftMid - 6} 46, ${xLeftMid} 30
-    C ${xLeftMid + 6} 14, ${activeCenterX - 11} ${archTopY}, ${activeCenterX} ${archTopY}
-    C ${activeCenterX + 11} ${archTopY}, ${xRightMid - 6} 14, ${xRightMid} 30
-    C ${xRightMid + 6} 46, ${xRightBase - 8} ${baselineY}, ${xRightBase} ${baselineY}
-    L ${tabBarWidth - 12} ${baselineY}
+  // Mathematically smooth Bézier liquid scoop cutout
+  const liquidPath = `
+    M 0 ${topY}
+    L ${leftShoulder} ${topY}
+    C ${leftShoulder + 12} ${topY}, ${currentNotchX - 20} ${scoopDepth}, ${currentNotchX} ${scoopDepth}
+    C ${currentNotchX + 20} ${scoopDepth}, ${rightShoulder - 12} ${topY}, ${rightShoulder} ${topY}
+    L ${barWidth} ${topY}
+    L ${barWidth} ${totalBarHeight + 20}
+    L 0 ${totalBarHeight + 20}
+    Z
   `;
+
+  // Stroke along the scoop notch
+  const notchStrokePath = `
+    M ${leftShoulder} ${topY}
+    C ${leftShoulder + 12} ${topY}, ${currentNotchX - 20} ${scoopDepth}, ${currentNotchX} ${scoopDepth}
+    C ${currentNotchX + 20} ${scoopDepth}, ${rightShoulder - 12} ${topY}, ${rightShoulder} ${topY}
+  `;
+
+  // Determine active icon for floating circular button
+  let activeIcon: keyof typeof Ionicons.glyphMap = 'apps';
+  if (activeSlot === 0) activeIcon = 'apps';
+  else if (activeSlot === 1) activeIcon = 'list';
+  else if (activeSlot === 2) activeIcon = 'swap-horizontal';
+  else if (activeSlot === 3) activeIcon = 'layers';
+  else if (activeSlot === 4) activeIcon = 'person';
+
+  // Saturated Vibrant Orange Color (100% matching user reference in orange)
+  const vibrantOrange = '#FF5500';
 
   return (
     <>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <Animated.View
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastFade,
+              bottom: totalBarHeight + 16,
+              backgroundColor: '#1E2530',
+              borderColor: vibrantOrange,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons name="sync-circle" size={20} color={vibrantOrange} />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Navigation Dock Container */}
       <View
-        style={[
-          styles.floatingWrapper,
-          { bottom: Math.max(insets.bottom, 12) + 6 },
-        ]}
+        style={[styles.dockContainer, { height: totalBarHeight + 18 }]}
+        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         pointerEvents="box-none"
       >
-        <View
-          style={styles.pillContainer}
-          onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
+        {/* Dynamic Vibrant Orange Pocket Behind Cutout Notch */}
+        <Animated.View
+          style={[
+            styles.orangePocket,
+            {
+              left: Animated.subtract(notchAnim, 42),
+              width: 84,
+              height: 52,
+              top: 0,
+              backgroundColor: vibrantOrange,
+            },
+          ]}
+        />
+
+        {/* Solid Pure White Bar with Dynamic Fluid Cutout Notch */}
+        <Svg
+          width={barWidth}
+          height={totalBarHeight + 20}
+          style={StyleSheet.absoluteFill}
         >
-          {/* Matte charcoal background matching reference */}
-          <LinearGradient
-            colors={['#1F2026', '#14151A']}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
+          <Path
+            d={liquidPath}
+            fill="#FFFFFF"
           />
+          {/* Subtle Orange Accent Stroke along the Scoop Notch */}
+          <Path
+            d={notchStrokePath}
+            fill="none"
+            stroke={vibrantOrange}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+        </Svg>
 
-          {/* SVG Glowing Red Wave / Arch Overlay */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Svg width="100%" height={barHeight}>
-              <Defs>
-                <SvgGradient id="redGlowLine" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#E60023" stopOpacity="0.7" />
-                  <Stop offset="0.2" stopColor="#FF2A54" stopOpacity="1" />
-                  <Stop offset="0.7" stopColor="#FF2A54" stopOpacity="0.9" />
-                  <Stop offset="0.95" stopColor="#FF2A54" stopOpacity="0.35" />
-                  <Stop offset="1" stopColor="#FF2A54" stopOpacity="0.0" />
-                </SvgGradient>
-                <SvgGradient id="ambientGlow" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor="#FF2A54" stopOpacity="0.28" />
-                  <Stop offset="0.7" stopColor="#FF2A54" stopOpacity="0.06" />
-                  <Stop offset="1" stopColor="#FF2A54" stopOpacity="0.0" />
-                </SvgGradient>
-              </Defs>
+        {/* Floating Pure White Circular Button in the Notch */}
+        <Animated.View
+          style={[
+            styles.floatingCircle,
+            {
+              left: Animated.subtract(notchAnim, 24),
+              top: 2,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons name={activeIcon} size={25} color="#111827" />
+        </Animated.View>
 
-              {/* Soft ambient under-glow along the wave path */}
-              <Path
-                d={curvePath}
-                fill="none"
-                stroke="#FF2A54"
-                strokeWidth={5}
-                strokeOpacity={0.22}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* Crisp glowing highlight red line */}
-              <Path
-                d={curvePath}
-                fill="none"
-                stroke="url(#redGlowLine)"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* Ambient soft glow fill directly inside the active arch dome */}
-              <Path
-                d={`
-                  M ${xLeftBase} ${baselineY}
-                  C ${xLeftBase + 8} ${baselineY}, ${xLeftMid - 6} 46, ${xLeftMid} 30
-                  C ${xLeftMid + 6} 14, ${activeCenterX - 11} ${archTopY}, ${activeCenterX} ${archTopY}
-                  C ${activeCenterX + 11} ${archTopY}, ${xRightMid - 6} 14, ${xRightMid} 30
-                  C ${xRightMid + 6} 46, ${xRightBase - 8} ${baselineY}, ${xRightBase} ${baselineY}
-                  Z
-                `}
-                fill="url(#ambientGlow)"
-              />
-            </Svg>
-          </View>
-
-          {/* Far Left: Circular 3D Brand Button with Red Monogram Logo */}
+        {/* Interactive Clickable Tabs Row (5 slots) */}
+        <View style={[styles.tabsRow, { top: topY, height: 50 }]}>
+          {/* Slot 0: Events (Grid Icon) */}
           <TouchableOpacity
-            style={styles.hubButton}
-            onPress={handleHubPress}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Staff Hub and Workspace Switcher"
+            style={styles.slotBtn}
+            onPress={() => navigateTo('index', 0)}
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel="Events"
           >
-            <LinearGradient
-              colors={['#2B2C36', '#181920']}
-              style={styles.hubInner}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              {/* Authentic Red Pinterest / Monogram Emblem */}
-              <Svg width={22} height={22} viewBox="0 0 24 24">
-                <Path
-                  d="M12 0a12 12 0 0 0-4.37 23.17c-.07-.63-.13-1.6.03-2.29l1.1-4.66s-.28-.56-.28-1.39c0-1.3.76-2.28 1.7-2.28.8 0 1.19.6 1.19 1.33 0 .81-.51 2.01-.78 3.13-.22.94.47 1.7 1.4 1.7 1.68 0 2.97-1.77 2.97-4.33 0-2.26-1.63-3.85-3.95-3.85-2.69 0-4.27 2.02-4.27 4.1 0 .81.31 1.68.7 2.16.08.1.09.18.06.28l-.26 1.07c-.04.18-.15.22-.34.14-1.28-.6-2.07-2.46-2.07-3.96 0-3.22 2.34-6.18 6.75-6.18 3.54 0 6.3 2.53 6.3 5.9 0 3.52-2.22 6.35-5.3 6.35-1.03 0-2.01-.54-2.34-1.17l-.64 2.43c-.23.89-.86 2-1.28 2.69A12 12 0 1 0 12 0z"
-                  fill="#E60023"
-                />
-              </Svg>
-            </LinearGradient>
+            {activeSlot !== 0 && (
+              <Ionicons name="apps-outline" size={23} color="#9E9EA7" />
+            )}
           </TouchableOpacity>
 
-          {/* Tab Items Container: Home, Search, Create, Inbox, Saved */}
-          <View style={styles.tabsContainer}>
-            {visibleRoutes.map((route: any, index: number) => {
-              const { options } = descriptors[route.key];
-              const isFocused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
+          {/* Slot 1: Deliverables (List Icon) */}
+          <TouchableOpacity
+            style={styles.slotBtn}
+            onPress={() => navigateTo('orders', 1)}
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel="Deliverables"
+          >
+            {activeSlot !== 1 && (
+              <Ionicons name="list-outline" size={24} color="#9E9EA7" />
+            )}
+          </TouchableOpacity>
 
-              // 5 exact tabs matching reference design
-              let label = 'Home';
-              let iconName: any = 'home-outline';
-              let activeIconName: any = 'home';
-              let showNotificationDot = false;
-              let isPlusIcon = false;
+          {/* Slot 2 (Center): Switch Button (Opposing Arrows Icon) */}
+          <TouchableOpacity
+            style={styles.slotBtn}
+            onPress={handleSwitchMode}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              setHubVisible(true);
+            }}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Switch mode between Agent and Editor"
+          >
+            {activeSlot !== 2 && (
+              <Ionicons name="swap-horizontal" size={24} color="#9E9EA7" />
+            )}
+          </TouchableOpacity>
 
-              if (route.name === 'index') {
-                label = 'Home';
-                iconName = 'home-outline';
-                activeIconName = 'home';
-              } else if (route.name === 'orders') {
-                label = 'Search';
-                iconName = 'search-outline';
-                activeIconName = 'search';
-              } else if (route.name === 'schedule') {
-                label = 'Create';
-                iconName = 'add';
-                activeIconName = 'add';
-                isPlusIcon = true;
-              } else if (route.name === 'work') {
-                label = 'Inbox';
-                iconName = 'chatbubble-outline';
-                activeIconName = 'chatbubble';
-                showNotificationDot = true; // Red badge on top-right of Inbox
-              } else if (route.name === 'more') {
-                label = 'Saved';
-                iconName = 'person-outline';
-                activeIconName = 'person';
-              }
+          {/* Slot 3: Work / Call Sheets (Tray Icon) */}
+          <TouchableOpacity
+            style={styles.slotBtn}
+            onPress={() => navigateTo('work', 3)}
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel="Work and Call Sheets"
+          >
+            {activeSlot !== 3 && (
+              <Ionicons name="layers-outline" size={23} color="#9E9EA7" />
+            )}
+          </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={route.key}
-                  style={styles.tabItem}
-                  onPress={() => handleTabPress(route, isFocused)}
-                  onLayout={(e) => {
-                    const { x, width } = e.nativeEvent.layout;
-                    // Add offset of circular button (54pt)
-                    setTabLayouts((prev) => ({
-                      ...prev,
-                      [index]: { x: x + 54, width },
-                    }));
-                  }}
-                  activeOpacity={0.7}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isFocused }}
-                >
-                  <View style={styles.tabContent}>
-                    {/* Icon wrapper */}
-                    <View style={styles.iconWrapper}>
-                      <Ionicons
-                        name={isFocused ? activeIconName : iconName}
-                        size={isPlusIcon ? 25 : isFocused ? 21 : 20}
-                        color={isFocused ? '#FF2A54' : '#9E9EA7'}
-                      />
-                      {/* Notification Red Dot on Inbox */}
-                      {showNotificationDot && (
-                        <View style={styles.notificationDot} />
-                      )}
-                    </View>
+          {/* Slot 4: Profile (Person Silhouette Icon) */}
+          <TouchableOpacity
+            style={styles.slotBtn}
+            onPress={() => navigateTo('more', 4)}
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel="Profile"
+          >
+            {activeSlot !== 4 && (
+              <Ionicons name="person-outline" size={23} color="#9E9EA7" />
+            )}
+          </TouchableOpacity>
+        </View>
 
-                    {/* Small Illuminated Red Dot directly below active Home icon */}
-                    {isFocused ? (
-                      <View style={styles.activeDot} />
-                    ) : (
-                      <View style={styles.inactiveDotSpacer} />
-                    )}
-
-                    {/* Label */}
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.tabLabel,
-                        isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        {/* Clean Native Home Indicator Bar */}
+        <View style={[styles.homeIndicatorWrapper, { bottom: Math.max(insets.bottom - 4, 8) }]}>
+          <View style={styles.homeIndicator} />
         </View>
       </View>
 
-      {/* Quick Hub Modal (Triggered by Circular Logo Button) */}
+      {/* Staff Persona Modal (Accessible via Long Press on Center Switch) */}
       <Modal
         visible={hubVisible}
         transparent
@@ -361,189 +338,51 @@ export function FloatingTabBar({
         onRequestClose={() => setHubVisible(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setHubVisible(false)}>
-          <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.hubIconModal}>
-                <Ionicons name="sparkles" size={24} color="#FF2D55" />
+          <Pressable style={styles.hubSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.hubHeader}>
+              <View>
+                <Text style={styles.hubTitle}>Staff Persona Switcher</Text>
+                <Text style={styles.hubSubtitle}>Select role to test workflow boundaries</Text>
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.modalTitle}>WedTrack Staff Hub</Text>
-                <Text style={styles.modalSubtitle}>
-                  {session?.studio.name || 'Studio'} • {session?.name} ({session?.primaryRole})
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setHubVisible(false)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Ionicons name="close" size={22} color="#9CA3AF" />
+              <TouchableOpacity onPress={() => setHubVisible(false)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Workspace Switcher */}
-              <Text style={styles.modalSectionTitle}>ACTIVE WORKSPACE</Text>
-              <View style={styles.workspaceRow}>
-                {(['OPERATIONS', 'SHOOTS', 'EDITING'] as WorkspaceMode[]).map((ws) => {
-                  const isCurrent = session?.activeWorkspace === ws;
-                  const icons: Record<WorkspaceMode, any> = {
-                    OPERATIONS: 'business-outline',
-                    SHOOTS: 'camera-outline',
-                    EDITING: 'film-outline',
-                  };
-                  const labels: Record<WorkspaceMode, string> = {
-                    OPERATIONS: 'Operations',
-                    SHOOTS: 'Shoots',
-                    EDITING: 'Editing',
-                  };
-
-                  return (
-                    <TouchableOpacity
-                      key={ws}
-                      style={[
-                        styles.workspaceChip,
-                        isCurrent && styles.workspaceChipActive,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        switchWorkspace(ws);
-                        setHubVisible(false);
-                      }}
-                    >
-                      <Ionicons
-                        name={icons[ws]}
-                        size={16}
-                        color={isCurrent ? '#FFFFFF' : '#9CA3AF'}
-                      />
-                      <Text
-                        style={[
-                          styles.workspaceChipText,
-                          isCurrent && styles.workspaceChipTextActive,
-                        ]}
-                      >
-                        {labels[ws]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Demo Persona Switcher (Demo Mode) */}
-              {mode === 'demo' && (
-                <>
-                  <Text style={[styles.modalSectionTitle, { marginTop: 18 }]}>DEMO STAFF PERSONA</Text>
-                  <View style={styles.personaGrid}>
-                    {[
-                      { id: 'owner-admin', name: 'Aarav (Owner)', role: 'Admin', icon: 'shield-checkmark' },
-                      { id: 'agent-standard', name: 'Karan (Agent)', role: 'Shoots', icon: 'camera' },
-                      { id: 'editor-default', name: 'Vikram (Editor)', role: 'Editing', icon: 'film' },
-                      { id: 'dual-role', name: 'Ananya (Dual)', role: 'Shoots+Edit', icon: 'sparkles' },
-                    ].map((p) => {
-                      const isSelected = currentPersona?.id === p.id;
-                      return (
-                        <TouchableOpacity
-                          key={p.id}
-                          style={[
-                            styles.personaChip,
-                            isSelected && styles.personaChipActive,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            switchDemoPersona(p.id);
-                            setHubVisible(false);
-                          }}
-                        >
-                          <Ionicons
-                            name={p.icon as any}
-                            size={14}
-                            color={isSelected ? '#FFFFFF' : '#FF2D55'}
-                          />
-                          <Text
-                            style={[
-                              styles.personaChipText,
-                              isSelected && styles.personaChipTextActive,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {p.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
-              {/* Quick Actions */}
-              <Text style={[styles.modalSectionTitle, { marginTop: 18 }]}>QUICK ACTIONS</Text>
-
-              {permissions.destinations.includes('Orders') && (
-                <>
-                  <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={() => {
-                      setHubVisible(false);
-                      router.push('/orders/create-wedding');
-                    }}
-                  >
-                    <View style={[styles.actionIconBox, { backgroundColor: 'rgba(225, 29, 72, 0.15)' }]}>
-                      <Ionicons name="heart" size={18} color="#FF2D55" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.actionTitle}>New Wedding Booking</Text>
-                      <Text style={styles.actionDesc}>Comprehensive multi-day wedding package</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color="#6B7280" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={() => {
-                      setHubVisible(false);
-                      router.push('/orders/create-occasion');
-                    }}
-                  >
-                    <View style={[styles.actionIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                      <Ionicons name="calendar" size={18} color="#3B82F6" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.actionTitle}>New Occasion Booking</Text>
-                      <Text style={styles.actionDesc}>Single-event engagement, reception or birthday</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color="#6B7280" />
-                  </TouchableOpacity>
-                </>
-              )}
-
               <TouchableOpacity
-                style={styles.actionRow}
-                onPress={() => {
+                style={[styles.personaCard, isAgent && styles.personaCardActive]}
+                onPress={async () => {
+                  await switchWorkspace('SHOOTS');
                   setHubVisible(false);
-                  router.push('/gaps');
+                  showToast('Switched to Agent Mode (Karan Malhotra)');
                 }}
               >
-                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                  <Ionicons name="construct" size={18} color="#F59E0B" />
+                <Text style={styles.personaEmoji}>📸</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personaName}>Karan Malhotra (Agent / Crew)</Text>
+                  <Text style={styles.personaRole}>Shoots, Call Sheets & Deliverables Ingest</Text>
                 </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.actionTitle}>Integration Gap Register</Text>
-                  <Text style={styles.actionDesc}>Inspect technical gaps G1–G10 & requirements</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+                {isAgent && <Ionicons name="checkmark-circle" size={22} color={vibrantOrange} />}
               </TouchableOpacity>
 
-              {/* Demo Mode Notice */}
-              {mode === 'demo' && (
-                <View style={styles.demoNotice}>
-                  <Ionicons name="flask-outline" size={16} color="#10B981" />
-                  <Text style={styles.demoNoticeText}>
-                    Running in Demo Environment with synthetic studio fixtures.
-                  </Text>
+              <TouchableOpacity
+                style={[styles.personaCard, isEditor && styles.personaCardActive]}
+                onPress={async () => {
+                  await switchWorkspace('EDITING');
+                  setHubVisible(false);
+                  showToast('Switched to Editor Mode (Vikram Das)');
+                }}
+              >
+                <Text style={styles.personaEmoji}>🎬</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personaName}>Vikram Das (Editor)</Text>
+                  <Text style={styles.personaRole}>My Work queue, Deliverables & Task Claims</Text>
                 </View>
-              )}
+                {isEditor && <Ionicons name="checkmark-circle" size={22} color={vibrantOrange} />}
+              </TouchableOpacity>
             </ScrollView>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
     </>
@@ -551,279 +390,142 @@ export function FloatingTabBar({
 }
 
 const styles = StyleSheet.create({
-  floatingWrapper: {
+  dockContainer: {
     position: 'absolute',
-    left: 14,
-    right: 14,
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 999,
   },
-  pillContainer: {
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#1B1C22',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 8,
-    paddingRight: 10,
-    overflow: 'hidden',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-      web: {
-        boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.5)',
-      },
-    }),
-  },
-  hubButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.45,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  hubInner: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 1.5,
-    borderColor: '#2D2E38',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-around',
-    height: '100%',
-    paddingTop: 10,
-  },
-  tabItem: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    minWidth: 40,
-  },
-  tabContent: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  iconWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 26,
-    height: 22,
-  },
-  notificationDot: {
+  orangePocket: {
     position: 'absolute',
-    top: -2,
-    right: -4,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#E60023',
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 42,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E60023',
-    marginTop: 3,
-    marginBottom: 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#E60023',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 3,
-      },
-    }),
+  floatingCircle: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1001,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  inactiveDotSpacer: {
-    width: 4,
-    height: 9,
+  tabsRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1000,
   },
-  tabLabel: {
-    fontSize: 10,
-    letterSpacing: 0.1,
+  slotBtn: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tabLabelActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+  homeIndicatorWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1002,
   },
-  tabLabelInactive: {
-    color: '#9E9EA7',
-    fontWeight: '500',
+  homeIndicator: {
+    width: 134,
+    height: 4.5,
+    borderRadius: 2.25,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
 
-  /* Quick Hub Modal */
+  /* Toast */
+  toastContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 12,
+    zIndex: 1003,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  /* Modal */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
-  modalCard: {
-    backgroundColor: '#1C1C22',
+  hubSheet: {
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 38,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    maxHeight: '80%',
+    padding: 22,
+    paddingBottom: 36,
   },
-  modalHeader: {
+  hubHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  hubIconModal: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#262630',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#383848',
-  },
-  modalTitle: {
+  hubTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#111827',
   },
-  modalSubtitle: {
+  hubSubtitle: {
     fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  modalSectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
     color: '#6B7280',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  workspaceRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  workspaceChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#262630',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  workspaceChipActive: {
-    backgroundColor: '#E11D48',
-    borderColor: '#FF2D55',
-  },
-  workspaceChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  workspaceChipTextActive: {
-    color: '#FFFFFF',
-  },
-  personaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  personaChip: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#24242C',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  personaChipActive: {
-    backgroundColor: 'rgba(225, 29, 72, 0.2)',
-    borderColor: '#FF2D55',
-  },
-  personaChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#E5E7EB',
-    flex: 1,
-  },
-  personaChipTextActive: {
-    color: '#FF4D6D',
-    fontWeight: '700',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#24242C',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 8,
-  },
-  actionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  actionDesc: {
-    fontSize: 11,
-    color: '#9CA3AF',
     marginTop: 2,
   },
-  demoNotice: {
+  personaCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 16,
-    gap: 8,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 10,
+    gap: 12,
   },
-  demoNoticeText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#10B981',
+  personaCardActive: {
+    borderColor: '#FF5500',
+    backgroundColor: '#FFF7ED',
+  },
+  personaEmoji: {
+    fontSize: 22,
+  },
+  personaName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  personaRole: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
   },
 });

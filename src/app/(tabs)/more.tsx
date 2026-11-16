@@ -84,8 +84,8 @@ export default function TabMoreScreen() {
   const { session, permissions, signOut, mode } = useAuth();
   const { colors, typography, spacing } = useTheme();
 
-  // If in SHOOTS workspace, render the custom glassmorphic Agent Profile
-  if (session?.activeWorkspace === 'SHOOTS') {
+  // If in SHOOTS or EDITING workspace, render the custom glassmorphic Staff Profile
+  if (session?.activeWorkspace === 'SHOOTS' || session?.activeWorkspace === 'EDITING') {
     return <AgentProfileView showBack={false} />;
   }
 
