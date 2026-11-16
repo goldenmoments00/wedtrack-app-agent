@@ -139,9 +139,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Workspace Switcher (AUTH-04)
-  const switchWorkspace = (newWorkspace: WorkspaceMode) => {
+  const switchWorkspace = async (newWorkspace: WorkspaceMode) => {
     if (!session) return;
-    if (!session.availableWorkspaces.includes(newWorkspace)) {
+    if (mode === 'demo') {
+      if (newWorkspace === 'SHOOTS' && !session.availableWorkspaces.includes('SHOOTS')) {
+        await switchDemoPersona('agent-standard');
+        return;
+      }
+      if (newWorkspace === 'EDITING' && !session.availableWorkspaces.includes('EDITING')) {
+        await switchDemoPersona('editor-default');
+        return;
+      }
+      if (newWorkspace === 'OPERATIONS' && !session.availableWorkspaces.includes('OPERATIONS')) {
+        await switchDemoPersona('owner-admin');
+        return;
+      }
+    } else if (!session.availableWorkspaces.includes(newWorkspace)) {
       console.warn(`Workspace ${newWorkspace} not available for user.`);
       return;
     }

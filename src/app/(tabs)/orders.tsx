@@ -30,7 +30,7 @@ export default function TabOrdersScreen() {
     submitShootCounts,
     claimTask,
   } = useDemoStore();
-  const { colors, typography, spacing, radii } = useTheme();
+  const { colors, typography, spacing, radii, isDark } = useTheme();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -85,7 +85,10 @@ export default function TabOrdersScreen() {
         videoCount: role === 'VIDEOGRAPHER' ? parseInt(videoCountInput, 10) || 0 : undefined,
       });
       setSubmittingAsgId(null);
-      Alert.alert('Counts Submitted', 'Your deliverables count has been recorded in the studio log.');
+      Alert.alert(
+        'Counts Recorded Successfully',
+        `Your ${role.toLowerCase()} count has been recorded in the studio production ledger. Studio management will verify memory card material upon receipt.`
+      );
     };
 
     return (
@@ -94,17 +97,40 @@ export default function TabOrdersScreen() {
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
         >
           <Text style={[typography.title1, { color: colors.textPrimary }]}>
             Deliverables Submission
           </Text>
           <Text style={[typography.footnote, { color: colors.textSecondary, marginTop: 2 }]}>
-            Submit your captured photo/video counts for completed shoots
+            Record captured photo and footage counts for completed studio shoots (AGT-03)
           </Text>
+
+          {/* Honest Technical Boundary Notice */}
+          <View
+            style={{
+              backgroundColor: isDark ? '#1F2026' : '#EFF6FF',
+              borderColor: isDark ? '#2E303E' : '#BFDBFE',
+              borderWidth: 1,
+              borderRadius: radii.md,
+              padding: 12,
+              marginTop: spacing.md,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="information-circle" size={16} color="#3B82F6" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#3B82F6' }}>
+                STUDIO INGEST POLICY
+              </Text>
+            </View>
+            <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#1E40AF', marginTop: 4, lineHeight: 16 }}>
+              This submission registers your verified counts in studio records. Memory cards, RAW photos, and 4K footage files are handed over physically at the studio office.
+            </Text>
+          </View>
 
           {/* Pending Submissions */}
           <Text style={[typography.title3, { color: colors.textPrimary, marginTop: spacing.lg }]}>
-            Pending Submissions ({pendingSubmissions.length})
+            Pending Count Submissions ({pendingSubmissions.length})
           </Text>
 
           {pendingSubmissions.length === 0 ? (
@@ -114,79 +140,176 @@ export default function TabOrdersScreen() {
               message="No outstanding completed shoots awaiting count submission."
             />
           ) : (
-            pendingSubmissions.map(({ event, assignment }) => (
-              <View
-                key={assignment.id}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.surface, borderColor: colors.warning, borderRadius: radii.md, marginTop: spacing.sm },
-                ]}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={[typography.caption2, { color: colors.textMuted }]}>{event.tenantOrderNumber}</Text>
-                  <StatusBadge label="AWAITING COUNTS" variant="warning" size="sm" />
-                </View>
+            pendingSubmissions.map(({ event, assignment }) => {
+              const isPhoto = assignment.role === 'PHOTOGRAPHER';
+              const currentCount = isPhoto ? photoCountInput : videoCountInput;
+              const setCount = isPhoto ? setPhotoCountInput : setVideoCountInput;
 
-                <Text style={[typography.headline, { color: colors.textPrimary, marginTop: 2 }]}>
-                  {event.eventTypeName}
-                </Text>
-                <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                  {event.orderTitle} · Role: {assignment.role}
-                </Text>
-
-                {submittingAsgId === assignment.id ? (
-                  <View style={[styles.inputBox, { borderTopColor: colors.borderSubtle, marginTop: spacing.md, paddingTop: spacing.md }]}>
-                    <Text style={[typography.subhead, { color: colors.textPrimary }]}>
-                      Enter {assignment.role === 'PHOTOGRAPHER' ? 'Photo Count' : 'Video Footage Count'}
+              return (
+                <View
+                  key={assignment.id}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: '#EA580C',
+                      borderRadius: radii.md,
+                      marginTop: spacing.sm,
+                    },
+                  ]}
+                >
+                  <View style={styles.cardHeader}>
+                    <Text style={[typography.caption2, { color: '#EA580C', fontWeight: '700' }]}>
+                      {event.tenantOrderNumber}
                     </Text>
-                    <TextInput
-                      value={assignment.role === 'PHOTOGRAPHER' ? photoCountInput : videoCountInput}
-                      onChangeText={assignment.role === 'PHOTOGRAPHER' ? setPhotoCountInput : setVideoCountInput}
-                      keyboardType="numeric"
-                      style={[
-                        styles.textInput,
-                        {
-                          backgroundColor: colors.surfaceSubtle,
-                          borderColor: colors.border,
-                          color: colors.textPrimary,
-                          borderRadius: radii.sm,
-                          marginTop: 6,
-                        },
-                      ]}
-                    />
-
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.md }}>
-                      <Button
-                        title="Submit Count"
-                        onPress={() => handleConfirmSubmission(event.id, assignment.id, assignment.role)}
-                        size="sm"
-                        variant="primary"
-                        style={{ flex: 1 }}
-                      />
-                      <Button
-                        title="Cancel"
-                        onPress={() => setSubmittingAsgId(null)}
-                        size="sm"
-                        variant="outline"
-                      />
-                    </View>
+                    <StatusBadge label="AWAITING COUNTS" variant="warning" size="sm" />
                   </View>
-                ) : (
-                  <Button
-                    title={`Submit ${assignment.role} Counts`}
-                    onPress={() => setSubmittingAsgId(assignment.id)}
-                    size="sm"
-                    variant="primary"
-                    style={{ marginTop: spacing.md }}
-                  />
-                )}
-              </View>
-            ))
+
+                  <Text style={[typography.headline, { color: colors.textPrimary, marginTop: 2 }]}>
+                    {event.eventTypeName}
+                  </Text>
+                  <Text style={[typography.footnote, { color: colors.textSecondary }]}>
+                    {event.orderTitle} · Role: {assignment.role}
+                  </Text>
+
+                  {submittingAsgId === assignment.id ? (
+                    <View style={[styles.inputBox, { borderTopColor: colors.borderSubtle, marginTop: spacing.md, paddingTop: spacing.md }]}>
+                      <Text style={[typography.subhead, { color: colors.textPrimary, fontWeight: '600' }]}>
+                        Enter {isPhoto ? 'Final Photo Count' : 'Video Footage Clips'}
+                      </Text>
+
+                      {/* Stepper Input Row */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                        <TouchableOpacity
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: radii.sm,
+                            backgroundColor: isDark ? '#262732' : '#E5E7EB',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                          onPress={() => {
+                            const val = Math.max(0, (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5));
+                            setCount(String(val));
+                          }}
+                        >
+                          <Ionicons name="remove" size={18} color={colors.textPrimary} />
+                        </TouchableOpacity>
+
+                        <TextInput
+                          value={currentCount}
+                          onChangeText={setCount}
+                          keyboardType="numeric"
+                          style={[
+                            styles.textInput,
+                            {
+                              flex: 1,
+                              backgroundColor: colors.surfaceSubtle,
+                              borderColor: colors.border,
+                              color: colors.textPrimary,
+                              borderRadius: radii.sm,
+                              textAlign: 'center',
+                              fontSize: 16,
+                              fontWeight: '700',
+                            },
+                          ]}
+                        />
+
+                        <TouchableOpacity
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: radii.sm,
+                            backgroundColor: isDark ? '#262732' : '#E5E7EB',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                          onPress={() => {
+                            const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
+                            setCount(String(val));
+                          }}
+                        >
+                          <Ionicons name="add" size={18} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Quick Presets */}
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                        {(isPhoto ? ['350', '450', '650', '900'] : ['20', '35', '50', '75']).map(preset => (
+                          <TouchableOpacity
+                            key={preset}
+                            onPress={() => setCount(preset)}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 5,
+                              borderRadius: radii.sm,
+                              backgroundColor: isDark ? '#262732' : '#F3F4F6',
+                              borderWidth: 1,
+                              borderColor: isDark ? '#37384A' : '#E5E7EB',
+                            }}
+                          >
+                            <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>
+                              {preset} {isPhoto ? 'photos' : 'clips'}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      {/* Card Handover Note */}
+                      <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: 12 }]}>
+                        Memory Card Label / Ingest Remarks:
+                      </Text>
+                      <TextInput
+                        placeholder="e.g. Card A: Sony Tough 128GB, Card B: SD 64GB"
+                        placeholderTextColor={colors.textMuted}
+                        style={[
+                          styles.textInput,
+                          {
+                            backgroundColor: colors.surfaceSubtle,
+                            borderColor: colors.border,
+                            color: colors.textPrimary,
+                            borderRadius: radii.sm,
+                            marginTop: 4,
+                            fontSize: 12,
+                          },
+                        ]}
+                      />
+
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.md }}>
+                        <Button
+                          title="Confirm & Record Counts"
+                          onPress={() => handleConfirmSubmission(event.id, assignment.id, assignment.role)}
+                          size="sm"
+                          variant="primary"
+                          style={{ flex: 1 }}
+                        />
+                        <Button
+                          title="Cancel"
+                          onPress={() => setSubmittingAsgId(null)}
+                          size="sm"
+                          variant="outline"
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <Button
+                      title={`Submit ${assignment.role} Counts`}
+                      onPress={() => setSubmittingAsgId(assignment.id)}
+                      size="sm"
+                      variant="primary"
+                      icon={<Ionicons name="cloud-upload-outline" size={14} color="#FFFFFF" />}
+                      style={{ marginTop: spacing.md }}
+                    />
+                  )}
+                </View>
+              );
+            })
           )}
 
           {/* Submitted History (AGT-04) */}
           <Text style={[typography.title3, { color: colors.textPrimary, marginTop: spacing.xl }]}>
-            Submitted History ({submittedHistory.length})
+            Submission History ({submittedHistory.length})
           </Text>
 
           {submittedHistory.map(({ event, assignment }) => (
@@ -199,17 +322,24 @@ export default function TabOrdersScreen() {
             >
               <View style={styles.cardHeader}>
                 <Text style={[typography.caption2, { color: colors.textMuted }]}>{event.tenantOrderNumber}</Text>
-                <StatusBadge label="SUBMITTED" variant="success" size="sm" />
+                <StatusBadge label="COUNTS RECORDED" variant="success" size="sm" />
               </View>
               <Text style={[typography.headline, { color: colors.textPrimary, marginTop: 2 }]}>
                 {event.eventTypeName}
               </Text>
               <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                {assignment.role}: {assignment.submissionCount} items recorded
+                {assignment.role}: {assignment.submissionCount} {assignment.role === 'PHOTOGRAPHER' ? 'photos' : 'clips'} recorded
               </Text>
-              <Text style={[typography.caption2, { color: colors.textMuted, marginTop: 4 }]}>
-                Material Receipt: {assignment.materialReceived ? 'Verified by Studio' : 'Pending Verification'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <Ionicons
+                  name={assignment.materialReceived ? 'checkmark-circle' : 'hourglass-outline'}
+                  size={14}
+                  color={assignment.materialReceived ? '#10B981' : '#F59E0B'}
+                />
+                <Text style={[typography.caption2, { color: assignment.materialReceived ? '#10B981' : '#F59E0B', fontWeight: '600' }]}>
+                  {assignment.materialReceived ? 'Material Received by Studio Desk' : 'Pending Physical Card Ingest Verification'}
+                </Text>
+              </View>
             </View>
           ))}
         </ScrollView>

@@ -36,6 +36,7 @@ export default function TabIndexScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('NOV 26');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'COMPLETED'>('ALL');
+  const [agentFilter, setAgentFilter] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'COMPLETED'>('ALL');
   const [showFinancials, setShowFinancials] = useState(false);
 
   const onRefresh = () => {
@@ -44,6 +45,21 @@ export default function TabIndexScreen() {
   };
 
   const workspace = session?.activeWorkspace || 'OPERATIONS';
+
+  // Time helper (shared across Operations and Agent workspaces)
+  const formatEventTime = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      let hours = d.getUTCHours();
+      const mins = String(d.getUTCMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${hours}:${mins} ${ampm}`;
+    } catch {
+      return '12:00 PM';
+    }
+  };
 
   // ----------------------------------------------------
   // 1. OPERATIONS DASHBOARD (Golden Moment.in Event Schedule)
@@ -598,11 +614,21 @@ export default function TabIndexScreen() {
   }
 
   // ----------------------------------------------------
-  // 2. AGENT WORKSPACE (My Shoots / Schedule)
+  // 2. AGENT WORKSPACE (My Shoots / Schedule) (AGT-01 to AGT-05)
   // ----------------------------------------------------
   if (workspace === 'SHOOTS') {
     const agentId = session?.id || 'usr-agt-01';
     const myEvents = events.filter(e => e.assignments.some(a => a.agentId === agentId));
+
+    // Calculate agent metrics
+    let totalAssignedPay = 0;
+    myEvents.forEach(e => {
+      e.assignments.forEach(a => {
+        if (a.agentId === agentId && a.assignmentPay) {
+          totalAssignedPay += a.assignmentPay;
+        }
+      });
+    });
 
     const pendingSubmissions = myEvents.filter(e => {
       const myAsg = e.assignments.find(a => a.agentId === agentId);
@@ -611,6 +637,18 @@ export default function TabIndexScreen() {
 
     const upcomingEvents = myEvents.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED');
     const completedEvents = myEvents.filter(e => e.status === 'COMPLETED');
+
+    // Chronological Next Shoot hero card
+    const nextShoot = upcomingEvents[0] || myEvents[0];
+
+    // Filter events based on active filter chip
+    const displayedEvents = myEvents.filter(e => {
+      const myAsg = e.assignments.find(a => a.agentId === agentId);
+      if (agentFilter === 'UPCOMING') return e.status !== 'COMPLETED' && e.status !== 'CANCELLED';
+      if (agentFilter === 'PENDING') return e.status === 'COMPLETED' && myAsg && myAsg.submissionCount === undefined;
+      if (agentFilter === 'COMPLETED') return e.status === 'COMPLETED';
+      return true;
+    });
 
     const handleCall = (phone?: string) => {
       if (phone) Linking.openURL(`tel:${phone}`);
@@ -621,125 +659,488 @@ export default function TabIndexScreen() {
     };
 
     return (
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
-        <DemoBanner />
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      <View style={[styles.root, { backgroundColor: isDark ? '#111216' : '#F9FAFB' }]}>
+        {/* Agent Branded CRM Top Bar */}
+        <View
+          style={[
+            styles.crmHeaderBar,
+            {
+              backgroundColor: isDark ? '#181920' : '#FFFFFF',
+              borderBottomColor: isDark ? '#262732' : '#E5E7EB',
+              paddingTop: Math.max(insets.top, 10),
+            },
+          ]}
         >
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[typography.title1, { color: colors.textPrimary }]}>My Shoots</Text>
-              <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                {session?.name} · {session?.agentProfession || 'Crew Member'}
+          <View style={styles.brandContainer}>
+            <View style={[styles.brandAvatar, { backgroundColor: '#EA580C' }]}>
+              <Text style={styles.brandAvatarText}>
+                {session?.name ? session.name.charAt(0) : 'K'}
+              </Text>
+            </View>
+            <View style={{ marginLeft: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.brandTitle, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                  {session?.name || 'Karan Malhotra'}
+                </Text>
+                <View style={[styles.crmBadge, { backgroundColor: '#EA580C' }]}>
+                  <Text style={styles.crmBadgeText}>CREW</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 1 }}>
+                {session?.agentProfession === 'BOTH'
+                  ? '📸 Photographer & 🎥 Videographer'
+                  : session?.agentProfession === 'PHOTOGRAPHER'
+                  ? '📸 Lead Photographer'
+                  : '🎥 Cinematographer'}
               </Text>
             </View>
           </View>
 
-          {/* Pending Submissions Alert */}
-          {pendingSubmissions.length > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View
               style={[
-                styles.gapCard,
-                { backgroundColor: colors.warningSubtle, borderColor: colors.warning, borderRadius: radii.md, marginTop: spacing.md },
+                styles.creditsWalletPill,
+                {
+                  backgroundColor: isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFEDD5',
+                  borderColor: isDark ? 'rgba(234, 88, 12, 0.4)' : '#FDBA74',
+                },
               ]}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="cloud-upload" size={20} color={colors.warning} />
-                <Text style={[typography.headline, { color: colors.warningText, marginLeft: spacing.xs }]}>
-                  {pendingSubmissions.length} Completed Shoots Awaiting Count Submission
-                </Text>
-              </View>
-              <Text style={[typography.footnote, { color: colors.textPrimary, marginTop: 4 }]}>
-                Please enter your final photo/video count so studio managers can mark materials received.
+              <Ionicons name="camera-outline" size={13} color="#EA580C" />
+              <Text style={[styles.creditsText, { color: '#EA580C' }]}>
+                {myEvents.length} Shoots
               </Text>
-              <Button
-                title="Enter Counts Now"
-                onPress={() => router.push('/(tabs)/orders')}
-                size="sm"
-                variant="primary"
-                style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }}
-              />
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16, paddingTop: 16 }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Pending Deliverables Alert (AGT-03) */}
+          {pendingSubmissions.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.agentAlertBox,
+                { backgroundColor: isDark ? '#2D1F17' : '#FFF7ED', borderColor: '#EA580C' },
+              ]}
+              onPress={() => router.push('/(tabs)/orders')}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.agentAlertIcon, { backgroundColor: '#EA580C' }]}>
+                  <Ionicons name="cloud-upload" size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.agentAlertTitle, { color: isDark ? '#FED7AA' : '#9A3412' }]}>
+                    {pendingSubmissions.length} Shoot Awaiting Count Submission
+                  </Text>
+                  <Text style={[styles.agentAlertDesc, { color: isDark ? '#D1D5DB' : '#7C2D12' }]}>
+                    Tap to submit final captured photo/video counts for studio verification
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#EA580C" />
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Hero Card: Next Shoot (AGT-01) */}
+          {nextShoot && (
+            <View style={{ marginTop: pendingSubmissions.length > 0 ? 14 : 0 }}>
+              <View
+                style={[
+                  styles.agentHeroCard,
+                  {
+                    backgroundColor: isDark ? '#1A1B22' : '#FFFFFF',
+                    borderColor: isDark ? '#2E303E' : '#E5E7EB',
+                  },
+                ]}
+              >
+                {/* Hero Top Banner */}
+                <View style={styles.agentHeroHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="hourglass-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.agentHeroBannerText}>
+                      NEXT SCHEDULED SHOOT
+                    </Text>
+                  </View>
+                  <Text style={styles.agentHeroBannerTime}>
+                    {formatEventTime(nextShoot.startTime)}
+                  </Text>
+                </View>
+
+                <View style={{ padding: 14 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={[styles.agentHeroOrderTag, { color: '#EA580C' }]}>
+                        {nextShoot.tenantOrderNumber} · {nextShoot.orderTitle}
+                      </Text>
+                      <Text
+                        style={[styles.agentHeroEventName, { color: isDark ? '#FFFFFF' : '#111827' }]}
+                        numberOfLines={1}
+                      >
+                        {nextShoot.eventTypeName}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.agentHeroRoleBadge,
+                        { backgroundColor: isDark ? '#2B2C38' : '#F3F4F6' },
+                      ]}
+                    >
+                      <Ionicons name="camera" size={12} color="#EA580C" />
+                      <Text style={[styles.agentHeroRoleText, { color: isDark ? '#E5E7EB' : '#374151' }]}>
+                        {nextShoot.assignments.find(a => a.agentId === agentId)?.role || 'CREW'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Venue & Location */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                    <Ionicons name="location-outline" size={14} color="#EA580C" />
+                    <Text
+                      style={[styles.agentHeroVenueText, { color: isDark ? '#D1D5DB' : '#4B5563' }]}
+                      numberOfLines={1}
+                    >
+                      {nextShoot.venueName} · {nextShoot.venueAddress}
+                    </Text>
+                  </View>
+
+                  {/* Client Contact */}
+                  {nextShoot.contactName && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <Ionicons name="person-outline" size={13} color="#9CA3AF" />
+                      <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                        Contact: {nextShoot.contactName} ({nextShoot.contactPhone || 'On File'})
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Quick Action Button Row (AGT-02) */}
+                  <View style={styles.agentHeroActionRow}>
+                    {nextShoot.contactPhone ? (
+                      <TouchableOpacity
+                        style={[
+                          styles.agentActionBtn,
+                          { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
+                        ]}
+                        onPress={() => handleCall(nextShoot.contactPhone)}
+                      >
+                        <Ionicons name="call-outline" size={14} color="#EA580C" />
+                        <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                          Call Client
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    {nextShoot.venueMapUrl ? (
+                      <TouchableOpacity
+                        style={[
+                          styles.agentActionBtn,
+                          { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
+                        ]}
+                        onPress={() => handleMap(nextShoot.venueMapUrl)}
+                      >
+                        <Ionicons name="map-outline" size={14} color="#3B82F6" />
+                        <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                          Directions
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    <TouchableOpacity
+                      style={[
+                        styles.agentActionBtn,
+                        { backgroundColor: isDark ? '#242530' : '#F3F4F6', borderColor: isDark ? '#37384A' : '#E5E7EB' },
+                      ]}
+                      onPress={() => router.push(`/events/${nextShoot.id}`)}
+                    >
+                      <Ionicons name="information-circle-outline" size={14} color="#10B981" />
+                      <Text style={[styles.agentActionBtnText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                        Call Sheet
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
             </View>
           )}
 
-          {/* Upcoming Shoots */}
-          <Text style={[typography.title2, { color: colors.textPrimary, marginTop: spacing.lg }]}>
-            Upcoming Assignments ({upcomingEvents.length})
-          </Text>
+          {/* Metrics Summary Row (AGT-01, AGT-05) */}
+          <View
+            style={[
+              styles.metricsCard,
+              {
+                backgroundColor: isDark ? '#181920' : '#FFFFFF',
+                borderColor: isDark ? '#262732' : '#E5E7EB',
+                marginTop: 14,
+              },
+            ]}
+          >
+            <View style={styles.metricColumn}>
+              <Text style={[styles.metricNumber, { color: '#3B82F6' }]}>{myEvents.length}</Text>
+              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                My Shoots
+              </Text>
+            </View>
+            <View style={[styles.metricDivider, { backgroundColor: isDark ? '#262732' : '#E5E7EB' }]} />
+            <View style={styles.metricColumn}>
+              <Text style={[styles.metricNumber, { color: pendingSubmissions.length > 0 ? '#EA580C' : '#10B981' }]}>
+                {pendingSubmissions.length}
+              </Text>
+              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                Need Counts
+              </Text>
+            </View>
+            <View style={[styles.metricDivider, { backgroundColor: isDark ? '#262732' : '#E5E7EB' }]} />
+            <View style={styles.metricColumn}>
+              <Text style={[styles.metricNumber, { color: '#10B981', fontSize: 16 }]}>
+                {formatCurrency(totalAssignedPay)}
+              </Text>
+              <Text style={[styles.metricLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                Assigned Pay
+              </Text>
+            </View>
+          </View>
 
-          {upcomingEvents.length === 0 ? (
-            <StateView type="empty" title="No Upcoming Shoots" message="You have no pending shoot assignments scheduled." />
-          ) : (
-            upcomingEvents.map(evt => {
-              const myAsg = evt.assignments.find(a => a.agentId === agentId);
+          {/* Filter Chips (All, Upcoming, Pending Counts, Completed) */}
+          <View style={styles.filterChipRow}>
+            {(['ALL', 'UPCOMING', 'PENDING', 'COMPLETED'] as const).map((mode) => {
+              const isSelected = agentFilter === mode;
+              const labels = {
+                ALL: 'ALL SHOOTS',
+                UPCOMING: 'UPCOMING',
+                PENDING: 'NEED COUNTS',
+                COMPLETED: 'COMPLETED',
+              };
               return (
-                <View
-                  key={evt.id}
+                <TouchableOpacity
+                  key={mode}
                   style={[
-                    styles.orderCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.sm },
+                    styles.filterChip,
+                    isSelected
+                      ? styles.filterChipActive
+                      : { backgroundColor: isDark ? '#1F2026' : '#F3F4F6', borderColor: isDark ? '#2E303E' : '#E5E7EB' },
                   ]}
+                  onPress={() => setAgentFilter(mode)}
                 >
-                  <View style={styles.orderTopRow}>
-                    <Text style={[typography.caption2, { color: colors.textMuted }]}>{evt.tenantOrderNumber}</Text>
-                    <StatusBadge label={myAsg?.role || 'CREW'} variant="info" size="sm" />
-                  </View>
-
-                  <Text style={[typography.title3, { color: colors.textPrimary, marginTop: 2 }]}>
-                    {evt.eventTypeName}
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isSelected
+                        ? styles.filterChipTextActive
+                        : { color: isDark ? '#9CA3AF' : '#6B7280' },
+                    ]}
+                  >
+                    {labels[mode]}
                   </Text>
-                  <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                    {evt.orderTitle}
-                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-                  <View style={[styles.orderMetaRow, { marginTop: 6 }]}>
-                    <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                    <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4 }]}>
-                      {new Date(evt.startTime).toLocaleString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                        hour12: true,
-                      })}
-                    </Text>
-                  </View>
+          {/* Assigned Shoots Feed */}
+          <View style={{ marginTop: 14 }}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitleText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                Assigned Shoots ({displayedEvents.length})
+              </Text>
+              <Text style={{ fontSize: 11, color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                Sorted chronologically
+              </Text>
+            </View>
 
-                  <View style={[styles.orderMetaRow, { marginTop: 4 }]}>
-                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                    <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4, flex: 1 }]}>
-                      {evt.venueName} · {evt.venueAddress}
-                    </Text>
-                  </View>
+            {displayedEvents.length === 0 ? (
+              <View style={[styles.agentEmptyCard, { backgroundColor: isDark ? '#1A1B22' : '#FFFFFF', borderColor: isDark ? '#2E303E' : '#E5E7EB' }]}>
+                <Ionicons name="calendar-outline" size={32} color="#6B7280" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#FFFFFF' : '#111827', marginTop: 8 }}>
+                  No Shoots Found
+                </Text>
+                <Text style={{ fontSize: 12, color: isDark ? '#9CA3AF' : '#6B7280', textAlign: 'center', marginTop: 4 }}>
+                  No shoot assignments match the selected filter.
+                </Text>
+              </View>
+            ) : (
+              displayedEvents.map((evt) => {
+                const myAsg = evt.assignments.find(a => a.agentId === agentId);
+                const isCompleted = evt.status === 'COMPLETED';
+                const needsCount = isCompleted && myAsg && myAsg.submissionCount === undefined;
 
-                  <View style={[styles.actionBtnRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                    {evt.contactPhone && (
-                      <TouchableOpacity onPress={() => handleCall(evt.contactPhone)} style={styles.iconBtn}>
-                        <Ionicons name="call-outline" size={16} color={colors.primary} />
-                        <Text style={[typography.caption1, { color: colors.primary, marginLeft: 4 }]}>Call Contact</Text>
-                      </TouchableOpacity>
-                    )}
-                    {evt.venueMapUrl && (
-                      <TouchableOpacity onPress={() => handleMap(evt.venueMapUrl)} style={[styles.iconBtn, { marginLeft: spacing.md }]}>
-                        <Ionicons name="map-outline" size={16} color={colors.primary} />
-                        <Text style={[typography.caption1, { color: colors.primary, marginLeft: 4 }]}>Open Map</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {myAsg?.assignmentPay && (
-                      <View style={{ marginLeft: 'auto' }}>
-                        <Text style={[typography.caption2, { color: colors.textMuted }]}>Assignment Pay</Text>
-                        <Text style={[typography.headline, { color: colors.textPrimary }]}>
-                          {formatCurrency(myAsg.assignmentPay)}
+                return (
+                  <View
+                    key={evt.id}
+                    style={[
+                      styles.agentEventCard,
+                      {
+                        backgroundColor: isDark ? '#1A1B22' : '#FFFFFF',
+                        borderColor: isDark ? '#2E303E' : '#E5E7EB',
+                      },
+                    ]}
+                  >
+                    {/* Orange / Terracotta Date Header Banner */}
+                    <View style={styles.agentEventBanner}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="calendar" size={13} color="#FFFFFF" />
+                        <Text style={styles.agentEventBannerDate}>
+                          {new Date(evt.startTime).toLocaleDateString('en-IN', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          }).toUpperCase()}
+                        </Text>
+                        <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12 }}>•</Text>
+                        <Text style={styles.agentEventBannerCeremony}>
+                          {evt.eventTypeName.toUpperCase()}
                         </Text>
                       </View>
-                    )}
+
+                      <View
+                        style={[
+                          styles.agentStatusPill,
+                          {
+                            backgroundColor: needsCount
+                              ? '#EA580C'
+                              : isCompleted
+                              ? '#10B981'
+                              : '#3B82F6',
+                          },
+                        ]}
+                      >
+                        <Text style={styles.agentStatusPillText}>
+                          {needsCount ? 'NEED COUNTS' : evt.status}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Card Body */}
+                    <View style={{ padding: 14 }}>
+                      <Text style={[styles.agentOrderTag, { color: '#EA580C' }]}>
+                        {evt.tenantOrderNumber} · {evt.orderTitle}
+                      </Text>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                        <Ionicons name="time-outline" size={14} color="#D97706" />
+                        <Text style={[styles.agentTimeText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
+                          {formatEventTime(evt.startTime)}
+                        </Text>
+                      </View>
+
+                      {evt.venueName && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <Ionicons name="location-outline" size={14} color="#6B7280" />
+                          <Text
+                            style={[styles.agentVenueText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                            numberOfLines={1}
+                          >
+                            {evt.venueName} · {evt.venueAddress}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Crew & Colleagues Chips (Compensation strictly hidden per AGT-02!) */}
+                      <View style={styles.agentCrewRow}>
+                        <Text style={{ fontSize: 11, color: isDark ? '#6B7280' : '#9CA3AF', marginRight: 4 }}>
+                          Crew:
+                        </Text>
+                        {evt.assignments.map((asg) => {
+                          const isSelf = asg.agentId === agentId;
+                          return (
+                            <View
+                              key={asg.id}
+                              style={[
+                                styles.agentCrewMemberPill,
+                                {
+                                  backgroundColor: isSelf
+                                    ? isDark ? 'rgba(234, 88, 12, 0.2)' : '#FFEDD5'
+                                    : isDark ? '#262732' : '#F3F4F6',
+                                  borderColor: isSelf ? '#EA580C' : 'transparent',
+                                },
+                              ]}
+                            >
+                              <View style={[styles.crewDot, { backgroundColor: isSelf ? '#EA580C' : '#9CA3AF' }]} />
+                              <Text
+                                style={[
+                                  styles.agentCrewMemberName,
+                                  { color: isSelf ? '#EA580C' : isDark ? '#E5E7EB' : '#374151', fontWeight: isSelf ? '700' : '500' },
+                                ]}
+                              >
+                                {isSelf ? 'You' : asg.agentName} ({asg.role.substring(0, 5)})
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+
+                      {/* Bottom Footer: My Pay + Action Triggers */}
+                      <View
+                        style={[
+                          styles.agentCardFooter,
+                          { borderTopColor: isDark ? '#262732' : '#F3F4F6' },
+                        ]}
+                      >
+                        {myAsg?.assignmentPay ? (
+                          <View>
+                            <Text style={{ fontSize: 10, color: isDark ? '#6B7280' : '#9CA3AF' }}>
+                              AGREED PAY
+                            </Text>
+                            <Text style={[styles.agentPayAmount, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                              {formatCurrency(myAsg.assignmentPay)}
+                            </Text>
+                          </View>
+                        ) : <View />}
+
+                        <View style={{ flexDirection: 'row', gap: 6, marginLeft: 'auto' }}>
+                          {needsCount ? (
+                            <TouchableOpacity
+                              style={[styles.agentSubmitCountBtn, { backgroundColor: '#EA580C' }]}
+                              onPress={() => router.push('/(tabs)/orders')}
+                            >
+                              <Ionicons name="cloud-upload" size={13} color="#FFFFFF" />
+                              <Text style={styles.agentSubmitCountBtnText}>Submit Counts</Text>
+                            </TouchableOpacity>
+                          ) : isCompleted && myAsg?.submissionCount !== undefined ? (
+                            <View style={styles.agentSubmittedBadge}>
+                              <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                              <Text style={styles.agentSubmittedBadgeText}>
+                                {myAsg.submissionCount} Recorded
+                              </Text>
+                            </View>
+                          ) : (
+                            <>
+                              {evt.contactPhone && (
+                                <TouchableOpacity
+                                  style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
+                                  onPress={() => handleCall(evt.contactPhone)}
+                                >
+                                  <Ionicons name="call-outline" size={14} color="#EA580C" />
+                                </TouchableOpacity>
+                              )}
+                              {evt.venueMapUrl && (
+                                <TouchableOpacity
+                                  style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
+                                  onPress={() => handleMap(evt.venueMapUrl)}
+                                >
+                                  <Ionicons name="map-outline" size={14} color="#3B82F6" />
+                                </TouchableOpacity>
+                              )}
+                              <TouchableOpacity
+                                style={[styles.agentMiniBtn, { backgroundColor: isDark ? '#242530' : '#F3F4F6' }]}
+                                onPress={() => router.push(`/events/${evt.id}`)}
+                              >
+                                <Ionicons name="chevron-forward" size={14} color="#6B7280" />
+                              </TouchableOpacity>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                </View>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </View>
         </ScrollView>
       </View>
     );
@@ -1332,5 +1733,241 @@ const styles = StyleSheet.create({
   reviewStatusBox: {
     padding: 10,
     borderWidth: 1,
+  },
+
+  /* Agent Portal UI Styles */
+  filterChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: 12,
+  },
+  filterChipActive: {
+    backgroundColor: '#EA580C',
+    borderColor: '#EA580C',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitleText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  agentAlertBox: {
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1.2,
+  },
+  agentAlertIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agentAlertTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  agentAlertDesc: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  agentHeroCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  agentHeroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  agentHeroBannerText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  agentHeroBannerTime: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  agentHeroOrderTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  agentHeroEventName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  agentHeroRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  agentHeroRoleText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  agentHeroVenueText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  agentHeroActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  agentActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 5,
+  },
+  agentActionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  agentEmptyCard: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  agentEventCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  agentEventBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  agentEventBannerDate: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  agentEventBannerCeremony: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.95)',
+  },
+  agentStatusPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  agentStatusPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  agentOrderTag: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  agentTimeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  agentVenueText: {
+    fontSize: 12,
+  },
+  agentCrewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  agentCrewMemberPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+  },
+  agentCrewMemberName: {
+    fontSize: 11,
+  },
+  agentCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  agentPayAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  agentSubmitCountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 5,
+  },
+  agentSubmitCountBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  agentSubmittedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  agentSubmittedBadgeText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  agentMiniBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

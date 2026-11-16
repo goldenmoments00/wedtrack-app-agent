@@ -43,6 +43,8 @@ export function FloatingTabBar({
     session,
     permissions,
     switchWorkspace,
+    switchDemoPersona,
+    currentPersona,
     mode,
   } = useAuth();
   const router = useRouter();
@@ -427,6 +429,52 @@ export function FloatingTabBar({
                 })}
               </View>
 
+              {/* Demo Persona Switcher (Demo Mode) */}
+              {mode === 'demo' && (
+                <>
+                  <Text style={[styles.modalSectionTitle, { marginTop: 18 }]}>DEMO STAFF PERSONA</Text>
+                  <View style={styles.personaGrid}>
+                    {[
+                      { id: 'owner-admin', name: 'Aarav (Owner)', role: 'Admin', icon: 'shield-checkmark' },
+                      { id: 'agent-standard', name: 'Karan (Agent)', role: 'Shoots', icon: 'camera' },
+                      { id: 'editor-default', name: 'Vikram (Editor)', role: 'Editing', icon: 'film' },
+                      { id: 'dual-role', name: 'Ananya (Dual)', role: 'Shoots+Edit', icon: 'sparkles' },
+                    ].map((p) => {
+                      const isSelected = currentPersona?.id === p.id;
+                      return (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={[
+                            styles.personaChip,
+                            isSelected && styles.personaChipActive,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            switchDemoPersona(p.id);
+                            setHubVisible(false);
+                          }}
+                        >
+                          <Ionicons
+                            name={p.icon as any}
+                            size={14}
+                            color={isSelected ? '#FFFFFF' : '#FF2D55'}
+                          />
+                          <Text
+                            style={[
+                              styles.personaChipText,
+                              isSelected && styles.personaChipTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {p.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
               {/* Quick Actions */}
               <Text style={[styles.modalSectionTitle, { marginTop: 18 }]}>QUICK ACTIONS</Text>
 
@@ -706,6 +754,38 @@ const styles = StyleSheet.create({
   },
   workspaceChipTextActive: {
     color: '#FFFFFF',
+  },
+  personaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  personaChip: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#24242C',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  personaChipActive: {
+    backgroundColor: 'rgba(225, 29, 72, 0.2)',
+    borderColor: '#FF2D55',
+  },
+  personaChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E5E7EB',
+    flex: 1,
+  },
+  personaChipTextActive: {
+    color: '#FF4D6D',
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

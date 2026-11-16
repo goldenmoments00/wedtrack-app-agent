@@ -216,9 +216,11 @@ export default function EventDetailScreen() {
 
                 {/* Assignment Pay & Remove Action */}
                 <View style={[styles.priceRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                  {canSeeCost && asg.assignmentPay ? (
+                  {((canSeeCost || asg.agentId === session?.id) && asg.assignmentPay) ? (
                     <View>
-                      <Text style={[typography.caption2, { color: colors.textMuted }]}>Authorized Pay:</Text>
+                      <Text style={[typography.caption2, { color: colors.textMuted }]}>
+                        {asg.agentId === session?.id ? 'My Agreed Shoot Pay:' : 'Authorized Pay:'}
+                      </Text>
                       <Text style={[typography.headline, { color: colors.textPrimary }]}>
                         {formatCurrency(asg.assignmentPay)}
                       </Text>
