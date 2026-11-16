@@ -641,6 +641,7 @@ export default function TabIndexScreen() {
     let novPay = 0;
     let decPay = 0;
     let totalMyPay = 0;
+    const monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
     myEvents.forEach(e => {
       const a = e.assignments.find(asg => asg.agentId === agentId);
@@ -650,39 +651,6 @@ export default function TabIndexScreen() {
       if (m === 10 || e.startTime.includes('2026-11')) novPay += pay;
       if (m === 11 || e.startTime.includes('2026-12')) decPay += pay;
     });
-
-    // Horizontal Date Strip items from agent events
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    const monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-    const dateStripItems: {
-      dateKey: string;
-      dayNum: string;
-      monthShort: string;
-      dayOfWeek: string;
-      ceremonyShort: string;
-      count: number;
-    }[] = [];
-
-    myEvents.forEach(evt => {
-      const d = new Date(evt.startTime);
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      let item = dateStripItems.find(i => i.dateKey === dateKey);
-      if (!item) {
-        item = {
-          dateKey,
-          dayNum: String(d.getDate()),
-          monthShort: monthsShort[d.getMonth()],
-          dayOfWeek: days[d.getDay()],
-          ceremonyShort: evt.eventTypeName.split(' ')[0],
-          count: 0,
-        };
-        dateStripItems.push(item);
-      }
-      item.count++;
-    });
-
-    dateStripItems.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 
     // Filter events by Search Query, Month Tab, Date Squircle, and Filter Dropdown
     const filteredWorks = myEvents.filter(e => {
@@ -697,12 +665,6 @@ export default function TabIndexScreen() {
         if (e.status !== 'COMPLETED') return false;
       }
 
-      // 2. Specific Date Squircle filter
-      if (agentSelectedDate !== 'ALL') {
-        const d = new Date(e.startTime);
-        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (dateKey !== agentSelectedDate) return false;
-      }
 
       // 3. Dropdown filter
       if (agentFilterDropdown === 'COMPLETED' && e.status !== 'COMPLETED') return false;
@@ -1080,136 +1042,36 @@ export default function TabIndexScreen() {
             </View>
           </View>
 
-          {/* 3. Horizontal Interactive Date Selector Strip (Inspired by Reference) */}
-          <View style={styles.freshSectionHeaderRow}>
+          {/* 3. Month Selector (Streamlined Month-Only View) */}
+          <View style={[styles.freshSectionHeaderRow, { marginTop: 18, marginBottom: 8 }]}>
             <View style={styles.freshSectionTitleGroup}>
               <Ionicons name="calendar" size={18} color="#FF5500" />
               <Text style={[styles.freshSectionTitle, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                Select Date
+                Select Month
               </Text>
             </View>
-            {agentSelectedDate !== 'ALL' && (
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setAgentSelectedDate('ALL');
-                  setAgentMonthTab('ALL');
-                }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF5500' }}>Show All</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#9CA3AF' }}>
+              {agentMonthTab === 'ALL'
+                ? `${myEvents.length} Total Shoots`
+                : agentMonthTab === 'NOV'
+                ? `${myEvents.filter(e => e.startTime.includes('2026-11')).length} Shoots in Nov`
+                : agentMonthTab === 'DEC'
+                ? `${myEvents.filter(e => e.startTime.includes('2026-12')).length} Shoots in Dec`
+                : `${completedEvents.length} Completed`}
+            </Text>
           </View>
 
+          {/* Month Tabs */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.freshDateStrip}
+            contentContainerStyle={{ gap: 8, paddingVertical: 4, paddingRight: 10 }}
           >
-            {/* "ALL" Squircle */}
-            <TouchableOpacity
-              style={[
-                styles.freshDateCard,
-                agentSelectedDate === 'ALL'
-                  ? styles.freshDateCardActive
-                  : {
-                      backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
-                    },
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setAgentSelectedDate('ALL');
-              }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.freshDateMonth,
-                  { color: agentSelectedDate === 'ALL' ? '#FFFFFF' : isDark ? '#9CA3AF' : '#6B7280' },
-                ]}
-              >
-                ALL
-              </Text>
-              <Text
-                style={[
-                  styles.freshDateNum,
-                  { color: agentSelectedDate === 'ALL' ? '#FFFFFF' : isDark ? '#FFFFFF' : '#111827' },
-                ]}
-              >
-                {myEvents.length}
-              </Text>
-              <Text
-                style={[
-                  styles.freshDateDay,
-                  { color: agentSelectedDate === 'ALL' ? 'rgba(255, 255, 255, 0.85)' : isDark ? '#9CA3AF' : '#6B7280' },
-                ]}
-              >
-                SHOOTS
-              </Text>
-              {agentSelectedDate === 'ALL' && <View style={styles.freshDateDot} />}
-            </TouchableOpacity>
-
-            {/* Individual Date Squircles */}
-            {dateStripItems.map(item => {
-              const isSelected = agentSelectedDate === item.dateKey;
-              return (
-                <TouchableOpacity
-                  key={item.dateKey}
-                  style={[
-                    styles.freshDateCard,
-                    isSelected
-                      ? styles.freshDateCardActive
-                      : {
-                          backgroundColor: isDark ? '#141A22' : '#FFFFFF',
-                          borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
-                        },
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setAgentSelectedDate(isSelected ? 'ALL' : item.dateKey);
-                    setAgentMonthTab('ALL');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.freshDateMonth,
-                      { color: isSelected ? '#FFFFFF' : '#FF5500' },
-                    ]}
-                  >
-                    {item.monthShort}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.freshDateNum,
-                      { color: isSelected ? '#FFFFFF' : isDark ? '#FFFFFF' : '#111827' },
-                    ]}
-                  >
-                    {item.dayNum}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.freshDateDay,
-                      { color: isSelected ? 'rgba(255, 255, 255, 0.85)' : isDark ? '#9CA3AF' : '#6B7280' },
-                    ]}
-                  >
-                    {item.dayOfWeek}
-                  </Text>
-                  {isSelected && <View style={styles.freshDateDot} />}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* 4. Month Tabs & Status Filters */}
-          <View style={styles.freshMonthTabsRow}>
             {[
-              { key: 'ALL', label: `All (${myEvents.length})` },
-              { key: 'NOV', label: `Nov '26 (${myEvents.filter(e => e.startTime.includes('2026-11')).length})` },
-              { key: 'DEC', label: `Dec '26 (${myEvents.filter(e => e.startTime.includes('2026-12')).length})` },
-              { key: 'COMPLETED', label: `Done (${completedEvents.length})` },
+              { key: 'ALL', label: `All Shoots (${myEvents.length})` },
+              { key: 'NOV', label: `November '26 (${myEvents.filter(e => e.startTime.includes('2026-11')).length})` },
+              { key: 'DEC', label: `December '26 (${myEvents.filter(e => e.startTime.includes('2026-12')).length})` },
+              { key: 'COMPLETED', label: `Completed (${completedEvents.length})` },
             ].map(tab => {
               const isActive = agentMonthTab === tab.key;
               return (
@@ -1227,7 +1089,6 @@ export default function TabIndexScreen() {
                   onPress={() => {
                     Haptics.selectionAsync();
                     setAgentMonthTab(tab.key as any);
-                    setAgentSelectedDate('ALL');
                   }}
                   activeOpacity={0.8}
                 >
@@ -1244,7 +1105,7 @@ export default function TabIndexScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
 
           {/* 5. Search Bar */}
           <View style={styles.freshSearchRow}>
@@ -1320,6 +1181,11 @@ export default function TabIndexScreen() {
             {agentMonthTab === 'DEC' && (
               <View style={styles.refPayPillGreen}>
                 <Text style={styles.refPayPillTextGreen}>₹ {decPay.toLocaleString('en-IN')}</Text>
+              </View>
+            )}
+            {agentMonthTab === 'ALL' && (
+              <View style={styles.refPayPillOrange}>
+                <Text style={styles.refPayPillTextOrange}>₹ {totalMyPay.toLocaleString('en-IN')}</Text>
               </View>
             )}
           </View>
