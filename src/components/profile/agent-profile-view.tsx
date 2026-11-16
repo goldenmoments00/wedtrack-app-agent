@@ -12,12 +12,12 @@ import {
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface AgentProfileViewProps {
   onBack?: () => void;
@@ -28,6 +28,48 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
   const insets = useSafeAreaInsets();
   const { session, updateProfile, signOut, mode } = useAuth();
   const { events } = useDemoStore();
+  const { isDark } = useTheme();
+
+  // Exact Colors Extracted from User References:
+  // Night Mode reference: media_1794850244491_0e838404.png
+  // Day Mode reference:   media_1794850384669_ab8d54f4.png
+  const themeColors = isDark
+    ? {
+        bg: '#0E1319',                 // Deep Obsidian Slate (sampled #0E1319)
+        bgCard: '#151B22',             // Elevated Dark Surface Slate (sampled #151B22)
+        bgSubtle: '#1E2530',           // Metric Pill / Inner Container (sampled #1E2530)
+        border: '#1E2530',             // Subtle Border / Divider line
+        borderCard: 'rgba(255, 255, 255, 0.08)', // Card Outer Border
+        accent: '#F47730',             // Vibrant Terracotta Orange (sampled #F47730 / #F67027)
+        accentBox: '#2B1F1A',          // Warm Terracotta Dark Container (sampled #2B1F1A)
+        accentText: '#F47730',         // Terracotta Text
+        textPrimary: '#FFFFFF',        // Primary Heading White
+        textSecondary: '#8B949E',      // Muted Secondary Text
+        textMuted: '#6E7681',          // Hint / Subtext
+        switchTrack: '#FFFFFF',        // Signature Inverted Switch Track
+        switchThumb: '#0E1319',        // Dark Thumb on Right
+        btnGlass: '#151B22',
+        badgeBg: 'rgba(244, 119, 48, 0.15)',
+        badgeText: '#F47730',
+      }
+    : {
+        bg: '#F9F4EE',                 // Warm Creamy Linen Paper (sampled #F9F4EE)
+        bgCard: '#FFFFFF',             // Pure White Card Surface (sampled #FFFFFF)
+        bgSubtle: '#FAF4ED',           // Soft Warm Pill Surface (sampled #FAF2EA)
+        border: '#E8E2D9',             // Warm Soft Divider Line (sampled #E8E2D9)
+        borderCard: '#EDE5DC',         // Card Outer Border
+        accent: '#AB4831',             // Rustic Burnt Terracotta Brick (sampled #AB4831 / #B2604B)
+        accentBox: '#F3DED5',          // Soft Warm Peach-Terracotta Tint (sampled #F3DED5)
+        accentText: '#AB4831',         // Terracotta Text
+        textPrimary: '#1F2937',        // Deep Charcoal Slate Text
+        textSecondary: '#7C7267',      // Warm Muted Gray
+        textMuted: '#9CA3AF',          // Hint / Subtext
+        switchTrack: '#AB4831',        // Terracotta Switch Track
+        switchThumb: '#FFFFFF',        // Clean White Thumb
+        btnGlass: '#FFFFFF',
+        badgeBg: '#F3DED5',
+        badgeText: '#AB4831',
+      };
 
   // State for toggles and editable fields
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -83,46 +125,51 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
   };
 
   return (
-    <View style={styles.container}>
-      {/* Background Gradient: Deep Sage & Teal Glass Atmosphere */}
-      <LinearGradient
-        colors={['#2A3831', '#1D2A24', '#131C18']}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-      />
-
+    <View style={[styles.container, { backgroundColor: themeColors.bg }]}>
       {/* Top Glass Navigation Bar */}
       <View
         style={[
           styles.topBar,
           {
             paddingTop: Math.max(insets.top, 14),
+            borderBottomColor: themeColors.border,
           },
         ]}
       >
         {showBack ? (
           <TouchableOpacity
-            style={styles.circleGlassBtn}
+            style={[
+              styles.circleGlassBtn,
+              {
+                backgroundColor: themeColors.btnGlass,
+                borderColor: themeColors.border,
+              },
+            ]}
             onPress={onBack || (() => router.back())}
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={20} color={themeColors.textPrimary} />
           </TouchableOpacity>
         ) : (
           <View style={{ width: 44 }} />
         )}
 
-        <Text style={styles.topBarTitle}>Profile</Text>
+        <Text style={[styles.topBarTitle, { color: themeColors.textPrimary }]}>Profile</Text>
 
         <TouchableOpacity
-          style={styles.circleGlassBtn}
+          style={[
+            styles.circleGlassBtn,
+            {
+              backgroundColor: themeColors.btnGlass,
+              borderColor: themeColors.border,
+            },
+          ]}
           onPress={() => setEditModalVisible(true)}
           activeOpacity={0.7}
           accessibilityLabel="Edit profile"
         >
-          <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="create-outline" size={20} color={themeColors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -133,12 +180,20 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Hero Card (Frosted Glass with 3 Metrics) */}
-        <View style={styles.heroGlassCard}>
+        {/* Main Hero Card (Using exact reference layout and colors) */}
+        <View
+          style={[
+            styles.heroGlassCard,
+            {
+              backgroundColor: themeColors.bgCard,
+              borderColor: themeColors.borderCard,
+            },
+          ]}
+        >
           {/* Top Row: Avatar & Name */}
           <View style={styles.heroTopRow}>
             {/* Avatar Photo with Subtle Border */}
-            <View style={styles.avatarBorder}>
+            <View style={[styles.avatarBorder, { borderColor: themeColors.border }]}>
               <Image
                 source={{
                   uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
@@ -148,17 +203,24 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
             </View>
 
             <View style={styles.heroInfoCol}>
-              <Text style={styles.heroNameText} numberOfLines={1}>
+              <Text style={[styles.heroNameText, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {name}
               </Text>
-              <Text style={styles.heroSubtitleText} numberOfLines={1}>
+              <Text style={[styles.heroSubtitleText, { color: themeColors.textSecondary }]} numberOfLines={1}>
                 {location}
               </Text>
-              <Text style={styles.heroRolePillText} numberOfLines={1}>
-                {session?.agentProfession === 'BOTH'
-                  ? '📸 Lead Photographer & Cinematographer'
-                  : '📸 Lead Photographer'}
-              </Text>
+              <View
+                style={[
+                  styles.roleBadgeContainer,
+                  { backgroundColor: themeColors.badgeBg },
+                ]}
+              >
+                <Text style={[styles.heroRolePillText, { color: themeColors.badgeText }]} numberOfLines={1}>
+                  {session?.agentProfession === 'BOTH'
+                    ? '📸 Lead Photographer & Cinematographer'
+                    : '📸 Lead Photographer'}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -171,115 +233,185 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
             {statsMode === 'PHYSICAL' ? (
               <>
                 {/* Pill 1: Age */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Age</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Age</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>{age}</Text>
-                    <Text style={styles.metricUnit}>y.o</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>{age}</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>y.o</Text>
                   </View>
                 </View>
 
                 {/* Pill 2: Height */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Height</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Height</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>{height}</Text>
-                    <Text style={styles.metricUnit}>cm</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>{height}</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>cm</Text>
                   </View>
                 </View>
 
                 {/* Pill 3: Weight */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Weight</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Weight</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>{weight}</Text>
-                    <Text style={styles.metricUnit}>kg</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>{weight}</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>kg</Text>
                   </View>
                 </View>
               </>
             ) : (
               <>
                 {/* Pill 1: Shoots */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Shoots</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Shoots</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>{myShootsCount || 5}</Text>
-                    <Text style={styles.metricUnit}>evts</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>{myShootsCount || 5}</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>evts</Text>
                   </View>
                 </View>
 
                 {/* Pill 2: Rating */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Rating</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Rating</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>4.9</Text>
-                    <Text style={styles.metricUnit}>★</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>4.9</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>★</Text>
                   </View>
                 </View>
 
                 {/* Pill 3: Experience */}
-                <View style={styles.metricPill}>
-                  <Text style={styles.metricLabel}>Experience</Text>
+                <View
+                  style={[
+                    styles.metricPill,
+                    {
+                      backgroundColor: themeColors.bgSubtle,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.metricLabel, { color: themeColors.textSecondary }]}>Experience</Text>
                   <View style={styles.metricValueRow}>
-                    <Text style={styles.metricValueNum}>4+</Text>
-                    <Text style={styles.metricUnit}>yrs</Text>
+                    <Text style={[styles.metricValueNum, { color: themeColors.textPrimary }]}>4+</Text>
+                    <Text style={[styles.metricUnit, { color: themeColors.textSecondary }]}>yrs</Text>
                   </View>
                 </View>
               </>
             )}
           </TouchableOpacity>
 
-          <Text style={styles.statsToggleHint}>
+          <Text style={[styles.statsToggleHint, { color: themeColors.textMuted }]}>
             Tap pills to switch between physical & crew stats
           </Text>
         </View>
 
-        {/* Section 1: Account settings */}
-        <Text style={styles.sectionTitle}>Account settings</Text>
+        {/* Section 1: Account settings (using sampled colors) */}
+        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Account settings</Text>
 
-        <View style={styles.sectionGlassCard}>
-          {/* Item 1: Personal Information */}
+        <View
+          style={[
+            styles.sectionGlassCard,
+            {
+              backgroundColor: themeColors.bgCard,
+              borderColor: themeColors.borderCard,
+            },
+          ]}
+        >
+          {/* Item 1: Personal Information (Highlighted with signature Terracotta accent box) */}
           <TouchableOpacity
-            style={styles.capsuleRow}
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
             onPress={() => setActiveSubModal('PERSONAL')}
             activeOpacity={0.7}
           >
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+            <View style={[styles.capsuleIconBox, { backgroundColor: themeColors.accentBox }]}>
+              <Ionicons name="person-outline" size={18} color={themeColors.accent} />
             </View>
-            <Text style={styles.capsuleRowTitle}>Personal Information</Text>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.6)" />
+            <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Personal Information</Text>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Item 2: Remainder (Shoot Reminders & Call Sheets) */}
+          {/* Item 2: Remainder */}
           <TouchableOpacity
-            style={styles.capsuleRow}
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
             onPress={() => router.push('/(tabs)/work')}
             activeOpacity={0.7}
           >
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="list-outline" size={18} color="#FFFFFF" />
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
+              <Ionicons name="list-outline" size={18} color={themeColors.textSecondary} />
             </View>
-            <Text style={styles.capsuleRowTitle}>Remainder</Text>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.6)" />
+            <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Remainder</Text>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.textSecondary} />
           </TouchableOpacity>
 
           {/* Item 3: Sound (with Signature Inverted Toggle Switch) */}
           <TouchableOpacity
-            style={styles.capsuleRow}
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
             onPress={handleToggleSound}
             activeOpacity={0.8}
           >
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="volume-medium-outline" size={18} color="#FFFFFF" />
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
+              <Ionicons name="volume-medium-outline" size={18} color={themeColors.textSecondary} />
             </View>
-            <Text style={styles.capsuleRowTitle}>Sound</Text>
+            <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Sound</Text>
 
-            {/* Signature Switch: White pill track with dark circular thumb on right */}
-            <View style={[styles.switchTrack, soundEnabled ? styles.switchTrackOn : styles.switchTrackOff]}>
+            {/* Signature Switch: Pill track with round thumb */}
+            <View
+              style={[
+                styles.switchTrack,
+                {
+                  backgroundColor: soundEnabled
+                    ? themeColors.switchTrack
+                    : (isDark ? '#262F3D' : '#D5CEC7'),
+                },
+              ]}
+            >
               <View
                 style={[
                   styles.switchThumb,
+                  {
+                    backgroundColor: soundEnabled
+                      ? themeColors.switchThumb
+                      : (isDark ? '#8B949E' : '#FFFFFF'),
+                  },
                   soundEnabled ? styles.switchThumbRight : styles.switchThumbLeft,
                 ]}
               />
@@ -288,62 +420,70 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         </View>
 
         {/* Section 2: Preferences */}
-        <Text style={styles.sectionTitle}>Preferences</Text>
+        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Preferences</Text>
 
-        <View style={styles.sectionGlassCard}>
+        <View
+          style={[
+            styles.sectionGlassCard,
+            {
+              backgroundColor: themeColors.bgCard,
+              borderColor: themeColors.borderCard,
+            },
+          ]}
+        >
           {/* Gear Locker */}
           <TouchableOpacity
-            style={styles.capsuleRow}
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
             onPress={() => setActiveSubModal('GEAR')}
             activeOpacity={0.7}
           >
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
+              <Ionicons name="camera-outline" size={18} color={themeColors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.capsuleRowTitle}>Camera Kit & Gear Locker</Text>
-              <Text style={styles.capsuleRowSubtitle} numberOfLines={1}>{gearKit}</Text>
+              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Camera Kit & Gear Locker</Text>
+              <Text style={[styles.capsuleRowSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>{gearKit}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.6)" />
+            <Ionicons name="chevron-forward" size={18} color={themeColors.textSecondary} />
           </TouchableOpacity>
 
           {/* Bank & UPI Payments */}
           <TouchableOpacity
-            style={styles.capsuleRow}
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
             onPress={() => setActiveSubModal('UPI')}
             activeOpacity={0.7}
           >
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
+              <Ionicons name="wallet-outline" size={18} color={themeColors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.capsuleRowTitle}>Payout UPI & Settlement</Text>
-              <Text style={styles.capsuleRowSubtitle} numberOfLines={1}>{upiId}</Text>
+              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Payout UPI & Settlement</Text>
+              <Text style={[styles.capsuleRowSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>{upiId}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.6)" />
+            <Ionicons name="chevron-forward" size={18} color={themeColors.textSecondary} />
           </TouchableOpacity>
 
           {/* Studio Affiliation */}
-          <View style={styles.capsuleRow}>
-            <View style={styles.capsuleIconBox}>
-              <Ionicons name="business-outline" size={18} color="#FFFFFF" />
+          <View style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}>
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
+              <Ionicons name="business-outline" size={18} color={themeColors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.capsuleRowTitle}>Studio Affiliation</Text>
-              <Text style={styles.capsuleRowSubtitle}>Golden Moment.in · Verified Crew</Text>
+              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Studio Affiliation</Text>
+              <Text style={[styles.capsuleRowSubtitle, { color: themeColors.textSecondary }]}>Golden Moment.in · Verified Crew</Text>
             </View>
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>PRO</Text>
+            <View style={[styles.verifiedBadge, { backgroundColor: themeColors.badgeBg }]}>
+              <Text style={[styles.verifiedBadgeText, { color: themeColors.badgeText }]}>PRO</Text>
             </View>
           </View>
 
           {/* Sign Out */}
           <TouchableOpacity
-            style={[styles.capsuleRow, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}
+            style={[styles.capsuleRow, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEE2E2' }]}
             onPress={handleSignOut}
             activeOpacity={0.7}
           >
-            <View style={[styles.capsuleIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.25)' }]}>
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FECACA' }]}>
               <Ionicons name="log-out-outline" size={18} color="#EF4444" />
             </View>
             <Text style={[styles.capsuleRowTitle, { color: '#EF4444' }]}>Sign Out</Text>
@@ -363,89 +503,154 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
           style={styles.modalBackdrop}
           onPress={() => setEditModalVisible(false)}
         >
-          <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: themeColors.bgCard,
+                borderColor: themeColors.border,
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile Information</Text>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Edit Profile Information</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={22} color={themeColors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalInputLabel}>Full Name</Text>
+              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Full Name</Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
-                style={styles.modalInput}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: themeColors.bgSubtle,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
+                placeholderTextColor={themeColors.textMuted}
               />
 
-              <Text style={styles.modalInputLabel}>Location</Text>
+              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Location</Text>
               <TextInput
                 value={location}
                 onChangeText={setLocation}
-                style={styles.modalInput}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: themeColors.bgSubtle,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
+                placeholderTextColor={themeColors.textMuted}
               />
 
-              <Text style={styles.modalInputLabel}>Contact Phone</Text>
+              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Contact Phone</Text>
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
-                style={styles.modalInput}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: themeColors.bgSubtle,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
+                placeholderTextColor={themeColors.textMuted}
               />
 
               {/* Physical Stats */}
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalInputLabel}>Age</Text>
+                  <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Age</Text>
                   <TextInput
                     value={age}
                     onChangeText={setAge}
                     keyboardType="numeric"
-                    style={styles.modalInput}
+                    style={[
+                      styles.modalInput,
+                      {
+                        backgroundColor: themeColors.bgSubtle,
+                        borderColor: themeColors.border,
+                        color: themeColors.textPrimary,
+                      },
+                    ]}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalInputLabel}>Height (cm)</Text>
+                  <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Height (cm)</Text>
                   <TextInput
                     value={height}
                     onChangeText={setHeight}
                     keyboardType="numeric"
-                    style={styles.modalInput}
+                    style={[
+                      styles.modalInput,
+                      {
+                        backgroundColor: themeColors.bgSubtle,
+                        borderColor: themeColors.border,
+                        color: themeColors.textPrimary,
+                      },
+                    ]}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalInputLabel}>Weight (kg)</Text>
+                  <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Weight (kg)</Text>
                   <TextInput
                     value={weight}
                     onChangeText={setWeight}
                     keyboardType="numeric"
-                    style={styles.modalInput}
+                    style={[
+                      styles.modalInput,
+                      {
+                        backgroundColor: themeColors.bgSubtle,
+                        borderColor: themeColors.border,
+                        color: themeColors.textPrimary,
+                      },
+                    ]}
                   />
                 </View>
               </View>
 
-              <Text style={styles.modalInputLabel}>Primary Camera Kit</Text>
+              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Primary Camera Kit</Text>
               <TextInput
                 value={gearKit}
                 onChangeText={setGearKit}
-                style={styles.modalInput}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: themeColors.bgSubtle,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
+                placeholderTextColor={themeColors.textMuted}
               />
 
-              <Text style={styles.modalInputLabel}>Payout UPI ID</Text>
+              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Payout UPI ID</Text>
               <TextInput
                 value={upiId}
                 onChangeText={setUpiId}
-                style={styles.modalInput}
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: themeColors.bgSubtle,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
+                placeholderTextColor={themeColors.textMuted}
               />
 
               <TouchableOpacity
-                style={styles.saveBtn}
+                style={[styles.saveBtn, { backgroundColor: themeColors.accent }]}
                 onPress={handleSaveProfile}
                 activeOpacity={0.8}
               >
@@ -468,9 +673,18 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
             style={styles.modalBackdrop}
             onPress={() => setActiveSubModal(null)}
           >
-            <View style={styles.subModalCard} onStartShouldSetResponder={() => true}>
+            <View
+              style={[
+                styles.subModalCard,
+                {
+                  backgroundColor: themeColors.bgCard,
+                  borderColor: themeColors.border,
+                },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
+                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                   {activeSubModal === 'PERSONAL'
                     ? 'Personal Information'
                     : activeSubModal === 'GEAR'
@@ -478,41 +692,41 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                     : 'Payout UPI Details'}
                 </Text>
                 <TouchableOpacity onPress={() => setActiveSubModal(null)}>
-                  <Ionicons name="close" size={22} color="#FFFFFF" />
+                  <Ionicons name="close" size={22} color={themeColors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
               {activeSubModal === 'PERSONAL' && (
                 <View style={{ gap: 8 }}>
-                  <Text style={styles.subModalText}>• Name: {name}</Text>
-                  <Text style={styles.subModalText}>• Location: {location}</Text>
-                  <Text style={styles.subModalText}>• Phone: {phone}</Text>
-                  <Text style={styles.subModalText}>• Studio Email: {session?.email}</Text>
-                  <Text style={styles.subModalText}>• Role: {session?.primaryRole} (Staff Crew)</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Name: {name}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Location: {location}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Phone: {phone}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Studio Email: {session?.email}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Role: {session?.primaryRole} (Staff Crew)</Text>
                 </View>
               )}
 
               {activeSubModal === 'GEAR' && (
                 <View style={{ gap: 8 }}>
-                  <Text style={styles.subModalText}>• Primary Camera: Sony FX3 Cinema Line</Text>
-                  <Text style={styles.subModalText}>• Backup Body: Sony A7 IV</Text>
-                  <Text style={styles.subModalText}>• Lenses: 24-70mm f/2.8 GM II, 70-200mm f/2.8 GM</Text>
-                  <Text style={styles.subModalText}>• Audio: DJI Mic 2 Wireless Transmitters</Text>
-                  <Text style={styles.subModalText}>• Lighting: Godox V1S Speedlite + Softbox</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Primary Camera: Sony FX3 Cinema Line</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Backup Body: Sony A7 IV</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Lenses: 24-70mm f/2.8 GM II, 70-200mm f/2.8 GM</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Audio: DJI Mic 2 Wireless Transmitters</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Lighting: Godox V1S Speedlite + Softbox</Text>
                 </View>
               )}
 
               {activeSubModal === 'UPI' && (
                 <View style={{ gap: 8 }}>
-                  <Text style={styles.subModalText}>• UPI ID: {upiId}</Text>
-                  <Text style={styles.subModalText}>• Payee Name: {name}</Text>
-                  <Text style={styles.subModalText}>• Settlement Mode: Monthly Bank Transfer</Text>
-                  <Text style={styles.subModalText}>• Status: Verified with Studio Accounts Desk</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• UPI ID: {upiId}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Payee Name: {name}</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Settlement Mode: Monthly Bank Transfer</Text>
+                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Status: Verified with Studio Accounts Desk</Text>
                 </View>
               )}
 
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 16 }]}
+                style={[styles.saveBtn, { backgroundColor: themeColors.accent, marginTop: 16 }]}
                 onPress={() => setActiveSubModal(null)}
               >
                 <Text style={styles.saveBtnText}>Done</Text>
@@ -535,34 +749,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
+    borderBottomWidth: 1,
   },
   circleGlassBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   topBarTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingTop: 14,
   },
 
   /* Hero Card */
   heroGlassCard: {
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
     padding: 18,
   },
   heroTopRow: {
@@ -575,7 +785,6 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
     overflow: 'hidden',
   },
   avatarImg: {
@@ -588,19 +797,22 @@ const styles = StyleSheet.create({
   heroNameText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     letterSpacing: 0.2,
   },
   heroSubtitleText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.72)',
     marginTop: 2,
+  },
+  roleBadgeContainer: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 5,
   },
   heroRolePillText: {
     fontSize: 11,
-    color: '#93C5FD',
     fontWeight: '600',
-    marginTop: 4,
   },
 
   /* Metric Stat Pills */
@@ -612,16 +824,13 @@ const styles = StyleSheet.create({
   metricPill: {
     flex: 1,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.13)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.65)',
     fontWeight: '500',
   },
   metricValueRow: {
@@ -633,16 +842,13 @@ const styles = StyleSheet.create({
   metricValueNum: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   metricUnit: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
   },
   statsToggleHint: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.4)',
     textAlign: 'center',
     marginTop: 10,
   },
@@ -651,16 +857,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginTop: 22,
     marginBottom: 10,
     letterSpacing: 0.2,
   },
   sectionGlassCard: {
     borderRadius: 26,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
     padding: 12,
     gap: 10,
   },
@@ -668,7 +871,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.11)',
     paddingVertical: 12,
     paddingHorizontal: 14,
     gap: 12,
@@ -677,23 +879,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   capsuleRowTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
     flex: 1,
   },
   capsuleRowSubtitle: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
     marginTop: 1,
   },
   verifiedBadge: {
-    backgroundColor: '#059669',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
@@ -701,10 +899,9 @@ const styles = StyleSheet.create({
   verifiedBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
 
-  /* Signature Inverted Switch: White Track with Dark Thumb on Right */
+  /* Signature Inverted Switch: Pill track with round thumb */
   switchTrack: {
     width: 48,
     height: 26,
@@ -712,48 +909,36 @@ const styles = StyleSheet.create({
     padding: 3,
     justifyContent: 'center',
   },
-  switchTrackOn: {
-    backgroundColor: '#FFFFFF',
-  },
-  switchTrackOff: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
   switchThumb: {
     width: 20,
     height: 20,
     borderRadius: 10,
   },
   switchThumbRight: {
-    backgroundColor: '#1C2923',
     alignSelf: 'flex-end',
   },
   switchThumbLeft: {
-    backgroundColor: '#FFFFFF',
     alignSelf: 'flex-start',
   },
 
   /* Modals */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#1E2C25',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     maxHeight: '85%',
   },
   subModalCard: {
     margin: 24,
-    backgroundColor: '#1E2C25',
     borderRadius: 24,
     padding: 22,
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
     alignSelf: 'center',
     width: '90%',
   },
@@ -766,27 +951,21 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   modalInputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.75)',
     marginTop: 10,
     marginBottom: 4,
   },
   modalInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
   },
   saveBtn: {
-    backgroundColor: '#059669',
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
@@ -800,7 +979,6 @@ const styles = StyleSheet.create({
   },
   subModalText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 22,
   },
 });
