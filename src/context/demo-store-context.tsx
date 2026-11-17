@@ -71,6 +71,10 @@ interface DemoStoreContextType {
   releaseTask: (taskId: string) => void;
   updateTaskStatus: (taskId: string, status: EditingTaskStatus) => void;
   updateActivityStatus: (activityId: string, newIndex: number) => void;
+  addEditingTask: (input: Omit<EditingTask, 'id' | 'createdAt' | 'updatedAt'>) => EditingTask;
+  assignEditorToTask: (taskId: string, editorId: string, editorName: string) => void;
+  deleteEditingTask: (taskId: string) => void;
+  autoGenerateEditingPipeline: (order: OrderDetail) => EditingTask[];
 
   // Review Actions
   uploadReviewVersion: (reviewItemId: string, versionData: Partial<ReviewVersion>) => void;
@@ -511,6 +515,190 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         return t;
       })
     );
+  };
+
+  // Add Custom Editing Task
+  const addEditingTask = (input: Omit<EditingTask, 'id' | 'createdAt' | 'updatedAt'>): EditingTask => {
+    const newTask: EditingTask = {
+      ...input,
+      id: `task-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setEditingTasks(prev => [newTask, ...prev]);
+    logActivity('CREATE_TASK', 'TASK', newTask.id, newTask.id, `Created editing task: ${newTask.title}`);
+    return newTask;
+  };
+
+  // Assign or Reassign Editor to Task
+  const assignEditorToTask = (taskId: string, editorId: string, editorName: string) => {
+    setEditingTasks(prev =>
+      prev.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            editorId,
+            editorName,
+            status: t.status === 'PENDING' ? 'IN_PROGRESS' : t.status,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return t;
+      })
+    );
+    logActivity('ASSIGN_EDITOR', 'TASK', taskId, taskId, `Assigned ${editorName} to ${taskId}`);
+  };
+
+  // Delete Editing Task
+  const deleteEditingTask = (taskId: string) => {
+    setEditingTasks(prev => prev.filter(t => t.id !== taskId));
+    logActivity('DELETE_TASK', 'TASK', taskId, taskId, `Deleted editing task ${taskId}`);
+  };
+
+  // Auto-Generate Default Editing Pipeline for a Booking
+  const autoGenerateEditingPipeline = (order: OrderDetail): EditingTask[] => {
+    const isWedding = order.type === 'WEDDING';
+    const now = new Date();
+    const eventD = new Date(order.eventDate);
+
+    // Set realistic due dates based on event date
+    const d1 = new Date(eventD.getTime() + 7 * 86400000).toISOString();
+    const d2 = new Date(eventD.getTime() + 14 * 86400000).toISOString();
+    const d3 = new Date(eventD.getTime() + 25 * 86400000).toISOString();
+
+    const templates: Omit<EditingTask, 'id' | 'createdAt' | 'updatedAt'>[] = isWedding
+      ? [
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'reel',
+            category: 'REEL',
+            title: 'Social Media Teaser Reel (60s)',
+            description: 'Vertical 9:16 high-energy reel for Instagram and WhatsApp status.',
+            status: 'PENDING',
+            cost: 6000,
+            durationMinutes: 1,
+            dueDate: d1,
+            venueLocation: order.venueLocation,
+            isReviewable: true,
+            reviewStatus: 'NOT_UPLOADED',
+          },
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'highlight',
+            category: 'HIGHLIGHT',
+            title: 'Cinematic Highlights Film (4-5 mins)',
+            description: 'Emotional narrative highlight film with dialogue audio sync and color grading.',
+            status: 'PENDING',
+            cost: 14000,
+            durationMinutes: 5,
+            dueDate: d2,
+            venueLocation: order.venueLocation,
+            isReviewable: true,
+            reviewStatus: 'NOT_UPLOADED',
+          },
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'order-photo',
+            category: 'PHOTO_EDIT',
+            title: 'Master Stills Selection & Color Grading',
+            description: 'Professional color correction, skin smoothing, and print preparation for 400 stills.',
+            status: 'PENDING',
+            cost: 10000,
+            quantity: 400,
+            dueDate: d2,
+            venueLocation: order.venueLocation,
+            isReviewable: false,
+          },
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'album',
+            category: 'ALBUM',
+            title: 'Flush Mount Royal Album Design (35 Spreads)',
+            description: '12x36 spread layout design for client digital proofing and leather-bound printing.',
+            status: 'PENDING',
+            cost: 15000,
+            quantity: 1,
+            dueDate: d3,
+            venueLocation: order.venueLocation,
+            isReviewable: true,
+            reviewStatus: 'NOT_UPLOADED',
+          },
+        ]
+      : [
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'highlight',
+            category: 'HIGHLIGHT',
+            title: 'Event Highlights & Recap Film (3-4 mins)',
+            description: 'Key moments recap with speaker soundbites and ambient event audio.',
+            status: 'PENDING',
+            cost: 12000,
+            durationMinutes: 4,
+            dueDate: d1,
+            venueLocation: order.venueLocation,
+            isReviewable: true,
+            reviewStatus: 'NOT_UPLOADED',
+          },
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'order-photo',
+            category: 'PHOTO_EDIT',
+            title: 'Event Stills Color Grading & Delivery',
+            description: 'Selected ceremony and candid photos color corrected and exported for press/web.',
+            status: 'PENDING',
+            cost: 8000,
+            quantity: 200,
+            dueDate: d1,
+            venueLocation: order.venueLocation,
+            isReviewable: false,
+          },
+          {
+            orderId: order.id,
+            tenantOrderNumber: order.tenantOrderNumber,
+            orderTitle: order.title,
+            clientNames: order.clientName,
+            taskType: 'order-video',
+            category: 'VIDEO_EDIT',
+            title: 'Full Event Video Archive Edit',
+            description: 'Multi-camera sequence cut with synced audio tracks and title cards.',
+            status: 'PENDING',
+            cost: 15000,
+            durationMinutes: 60,
+            dueDate: d2,
+            venueLocation: order.venueLocation,
+            isReviewable: true,
+            reviewStatus: 'NOT_UPLOADED',
+          },
+        ];
+
+    const created: EditingTask[] = templates.map((tmpl, index) => ({
+      ...tmpl,
+      id: `task-auto-${Date.now()}-${index}`,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    }));
+
+    setEditingTasks(prev => [...created, ...prev]);
+    logActivity('CREATE_PIPELINE', 'ORDER', order.id, order.title, `Generated ${created.length} default editing deliverables`);
+    return created;
   };
 
   // Update Activity Status (ACT-01, EDR-04)
@@ -972,6 +1160,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         releaseTask,
         updateTaskStatus,
         updateActivityStatus,
+        addEditingTask,
+        assignEditorToTask,
+        deleteEditingTask,
+        autoGenerateEditingPipeline,
 
         uploadReviewVersion,
         sendToClient,
