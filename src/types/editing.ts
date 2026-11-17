@@ -36,6 +36,8 @@ export interface EditingTask {
   quantity?: number;
   durationMinutes?: number;
   dueDate?: string;
+  venueLocation?: string;
+  clientNames?: string;
   isReviewable: boolean; // Album, Film (video), Highlight, Reel are reviewable; photo-edit is not
   reviewItemId?: string;
   reviewStatus?: 'NOT_UPLOADED' | 'WAITING_FOR_CLIENT' | 'CHANGES_REQUESTED' | 'APPROVED';

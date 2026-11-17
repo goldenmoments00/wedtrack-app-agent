@@ -11,6 +11,7 @@ import {
   Alert,
   TextInput,
   Image,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -53,6 +54,12 @@ export default function TabIndexScreen() {
     DEC: false,
   });
   const [showFinancials, setShowFinancials] = useState(false);
+
+  // Editor Mode (Your Tasks) state
+  const [editorSearchQuery, setEditorSearchQuery] = useState('');
+  const [editorStatusFilter, setEditorStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'PENDING'>('ALL');
+  const [editorStatusModalVisible, setEditorStatusModalVisible] = useState(false);
+
   const [activeStatToast, setActiveStatToast] = useState<{
     id: string;
     icon: string;
@@ -102,6 +109,30 @@ export default function TabIndexScreen() {
     } catch {
       return '12:00 PM';
     }
+  };
+
+  // Editor Task date formatter: "15 Apr 2026", "09 Mar 2026", etc.
+  const formatEditorTaskDate = (dueDate?: string) => {
+    if (!dueDate) return '15 Apr 2026';
+    try {
+      const d = new Date(dueDate);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const month = months[d.getUTCMonth()];
+      const year = d.getUTCFullYear();
+      return `${day} ${month} ${year}`;
+    } catch {
+      return '15 Apr 2026';
+    }
+  };
+
+  const formatEditorCategory = (cat?: string) => {
+    if (!cat) return 'Video Edit';
+    if (cat === 'VIDEO_EDIT') return 'Video Edit';
+    if (cat === 'PHOTO_EDIT') return 'Photo Edit';
+    if (cat === 'ALBUM') return 'Album Design';
+    if (cat === 'REEL') return 'Reels';
+    return cat;
   };
 
   // ----------------------------------------------------
@@ -1277,108 +1308,272 @@ export default function TabIndexScreen() {
     );
   }
 
-  // 3. EDITOR WORKSPACE (My Work / Review)
+  // 3. EDITOR WORKSPACE (Your Tasks)
   // ----------------------------------------------------
   if (workspace === 'EDITING') {
     const editorId = session?.id || 'usr-edr-01';
-    const myTasks = editingTasks.filter(t => t.editorId === editorId);
+    const myTasks = editingTasks.filter(t => {
+      if (t.editorId !== editorId) return false;
+      if (editorStatusFilter !== 'ALL' && t.status !== editorStatusFilter) return false;
+      if (editorSearchQuery.trim()) {
+        const q = editorSearchQuery.toLowerCase().trim();
+        const matchClient = (t.clientNames || t.orderTitle || '').toLowerCase().includes(q);
+        const matchTitle = (t.title || '').toLowerCase().includes(q);
+        const matchId = (t.tenantOrderNumber || '').toLowerCase().includes(q);
+        return matchClient || matchTitle || matchId;
+      }
+      return true;
+    });
 
     return (
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.root, { backgroundColor: '#F8F4EE' }]}>
         <DemoBanner />
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
+          contentContainerStyle={[styles.editorScrollContent, { paddingTop: insets.top + 8, paddingBottom: 110 }]}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[typography.title1, { color: colors.textPrimary }]}>My Editing Work</Text>
-              <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                {session?.name} · {session?.editorCategories?.join(', ') || 'Editor'}
-              </Text>
-            </View>
+          {/* Header Title: Your Tasks */}
+          <View style={styles.editorHeaderSection}>
+            <Text style={styles.editorScreenTitle}>Your Tasks</Text>
           </View>
 
-          {myTasks.length === 0 ? (
-            <StateView
-              type="empty"
-              title="No Tasks Assigned"
-              message="You currently have no editing tasks assigned to your queue."
-              actionTitle="Discover Available Work"
-              onAction={() => router.push('/(tabs)/orders')}
-            />
-          ) : (
-            myTasks.map(task => (
-              <View
-                key={task.id}
-                style={[
-                  styles.orderCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.sm },
-                ]}
-              >
-                <View style={styles.orderTopRow}>
-                  <Text style={[typography.caption2, { color: colors.textMuted }]}>{task.tenantOrderNumber}</Text>
-                  <StatusBadge label={task.status} variant={task.status === 'COMPLETED' ? 'success' : 'info'} size="sm" />
-                </View>
+          {/* Search & Filter Container Card */}
+          <View style={styles.editorFilterCard}>
+            {/* Search Input */}
+            <View style={styles.editorSearchBar}>
+              <Ionicons name="search-outline" size={18} color="#8A7A72" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.editorSearchInput}
+                placeholder="Search by client, task or ID..."
+                placeholderTextColor="#8A7A72"
+                value={editorSearchQuery}
+                onChangeText={setEditorSearchQuery}
+                clearButtonMode="while-editing"
+              />
+              {editorSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setEditorSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={16} color="#8A7A72" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-                <Text style={[typography.title3, { color: colors.textPrimary, marginTop: 2 }]}>
-                  {task.title}
-                </Text>
-                <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                  {task.orderTitle} · Category: {task.category}
-                </Text>
+            {/* Filter Dropdown */}
+            <TouchableOpacity
+              style={styles.editorDropdown}
+              onPress={() => setEditorStatusModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editorDropdownText}>
+                {editorStatusFilter === 'ALL'
+                  ? 'All Statuses'
+                  : editorStatusFilter === 'COMPLETED'
+                  ? 'Completed'
+                  : editorStatusFilter === 'IN_PROGRESS'
+                  ? 'In Progress'
+                  : 'Pending'}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#8A7A72" />
+            </TouchableOpacity>
+          </View>
 
-                {task.description && (
-                  <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: 4 }]}>
-                    {task.description}
-                  </Text>
-                )}
+          {/* Task Cards List */}
+          <View style={styles.editorTaskList}>
+            {myTasks.length === 0 ? (
+              <StateView
+                type="empty"
+                title="No Tasks Found"
+                message={editorSearchQuery ? 'No tasks match your search.' : 'You currently have no tasks in this queue.'}
+                actionTitle={editorSearchQuery ? 'Clear Search' : undefined}
+                onAction={editorSearchQuery ? () => setEditorSearchQuery('') : undefined}
+              />
+            ) : (
+              myTasks.map(task => {
+                const isCompleted = task.status === 'COMPLETED';
+                const isInProgress = task.status === 'IN_PROGRESS';
+                const hasPrice = typeof task.cost === 'number' && task.cost > 0;
+                const showNotUploaded = task.reviewStatus === 'NOT_UPLOADED' && task.id === 'task-ref-160';
 
-                {task.isReviewable && task.reviewItemId && (
-                  <View
-                    style={[
-                      styles.reviewStatusBox,
-                      {
-                        backgroundColor: colors.surfaceSubtle,
-                        borderColor: colors.borderSubtle,
-                        borderRadius: radii.sm,
-                        marginTop: spacing.sm,
-                      },
-                    ]}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={[typography.caption2, { color: colors.textSecondary, fontWeight: '600' }]}>
-                        CLIENT MEDIA REVIEW
-                      </Text>
-                      <StatusBadge
-                        label={task.reviewStatus || 'NOT_UPLOADED'}
-                        variant={mapReviewStatusToVariant(task.reviewStatus || '')}
-                        size="sm"
-                      />
+                return (
+                  <View key={task.id} style={styles.editorTaskCard}>
+                    {/* Top Row: #ID Tag + Category Tag + Status Badge */}
+                    <View style={styles.editorCardTopRow}>
+                      <View style={styles.editorCardTagsLeft}>
+                        <View style={styles.editorIdTag}>
+                          <Text style={styles.editorIdTagText}>{task.tenantOrderNumber}</Text>
+                        </View>
+                        <View style={styles.editorCategoryTag}>
+                          <Ionicons name="videocam-outline" size={13} color="#E11D48" style={{ marginRight: 4 }} />
+                          <Text style={styles.editorCategoryTagText}>{formatEditorCategory(task.category)}</Text>
+                        </View>
+                      </View>
+
+                      {/* Status Badge on Right */}
+                      {isCompleted ? (
+                        <View style={styles.editorStatusCompletedBadge}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color="#16A34A" style={{ marginRight: 4 }} />
+                          <Text style={styles.editorStatusCompletedText}>COMPLETED</Text>
+                        </View>
+                      ) : isInProgress ? (
+                        <View style={styles.editorStatusInProgressBadge}>
+                          <Ionicons name="time-outline" size={14} color="#0284C7" style={{ marginRight: 4 }} />
+                          <Text style={styles.editorStatusInProgressText}>IN PROGRESS</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.editorStatusPendingBadge}>
+                          <Ionicons name="alert-circle-outline" size={14} color="#D97706" style={{ marginRight: 4 }} />
+                          <Text style={styles.editorStatusPendingText}>PENDING</Text>
+                        </View>
+                      )}
                     </View>
 
-                    <Button
-                      title="Open Review & Comments"
-                      onPress={() => router.push(`/review/${task.reviewItemId}` as any)}
-                      size="sm"
-                      variant="primary"
-                      style={{ marginTop: spacing.xs }}
-                    />
-                  </View>
-                )}
+                    {/* Title and Client Row */}
+                    <View style={styles.editorCardTitleRow}>
+                      <Text style={styles.editorCardTitle}>{task.title || 'Video Editing'}</Text>
+                      <View style={styles.editorCardClientInline}>
+                        <Ionicons name="people-outline" size={14} color="#71717A" style={{ marginRight: 4 }} />
+                        <Text style={styles.editorCardClientText} numberOfLines={1}>
+                          {task.clientNames || task.orderTitle}
+                        </Text>
+                      </View>
+                    </View>
 
-                {task.cost && (
-                  <View style={[styles.orderPriceRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                    <Text style={[typography.caption1, { color: colors.textSecondary }]}>Task Compensation:</Text>
-                    <Text style={[typography.headline, { color: colors.textPrimary }]}>
-                      {formatCurrency(task.cost)}
-                    </Text>
+                    {/* Date, Location, and Not Uploaded row */}
+                    <View style={styles.editorCardMetaRow}>
+                      <View style={styles.editorCardMetaItem}>
+                        <Ionicons name="calendar-outline" size={13} color="#71717A" style={{ marginRight: 4 }} />
+                        <Text style={styles.editorCardMetaText}>{formatEditorTaskDate(task.dueDate)}</Text>
+                      </View>
+                      {task.venueLocation && (
+                        <View style={[styles.editorCardMetaItem, { flexShrink: 1 }]}>
+                          <Ionicons name="location-outline" size={13} color="#71717A" style={{ marginRight: 4 }} />
+                          <Text style={styles.editorCardMetaText} numberOfLines={1}>
+                            {task.venueLocation}
+                          </Text>
+                        </View>
+                      )}
+                      {showNotUploaded && (
+                        <View style={styles.editorNotUploadedBadge}>
+                          <Text style={styles.editorNotUploadedText}>Not uploaded</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Bottom Action Bar */}
+                    <View style={styles.editorCardBottomBar}>
+                      {/* Status / Payout Pill */}
+                      <TouchableOpacity
+                        style={styles.editorPayoutPill}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          Alert.alert(
+                            `${task.tenantOrderNumber} Details`,
+                            `Status: ${task.status}\nPayout: ${hasPrice ? '₹' + task.cost?.toLocaleString('en-IN') : 'Pending completion'}`,
+                            [{ text: 'OK' }]
+                          );
+                        }}
+                      >
+                        <Text style={hasPrice && isCompleted ? styles.editorPayoutAmount : styles.editorPayoutDash}>
+                          {hasPrice && isCompleted ? `₹${task.cost?.toLocaleString('en-IN')}` : '—'}
+                        </Text>
+                        <Text style={styles.editorPayoutStatusLabel}>
+                          {isCompleted ? 'Completed' : isInProgress ? 'In Progress' : 'Pending'}
+                        </Text>
+                        <View style={{ flex: 1 }} />
+                        <Ionicons name="chevron-down" size={14} color="#71717A" />
+                      </TouchableOpacity>
+
+                      {/* Action Buttons */}
+                      <View style={styles.editorCardActionsRight}>
+                        {/* Media / TV Button */}
+                        <TouchableOpacity
+                          style={styles.editorMediaSquareBtn}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (task.reviewItemId) {
+                              router.push(`/review/${task.reviewItemId}` as any);
+                            } else {
+                              Alert.alert('Media Files', `View deliverables for ${task.tenantOrderNumber}`);
+                            }
+                          }}
+                        >
+                          <Ionicons name="tv-outline" size={18} color="#8A7A72" />
+                        </TouchableOpacity>
+
+                        {/* Next / Chevron Button */}
+                        <TouchableOpacity
+                          style={styles.editorChevronSquareBtn}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            if (task.reviewItemId) {
+                              router.push(`/review/${task.reviewItemId}` as any);
+                            } else {
+                              Alert.alert('Task Info', `${task.title} - ${task.tenantOrderNumber}`);
+                            }
+                          }}
+                        >
+                          <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
-                )}
-              </View>
-            ))
-          )}
+                );
+              })
+            )}
+          </View>
         </ScrollView>
+
+        {/* Status Picker Modal */}
+        <Modal
+          visible={editorStatusModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditorStatusModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.editorModalOverlay}
+            activeOpacity={1}
+            onPress={() => setEditorStatusModalVisible(false)}
+          >
+            <View style={styles.editorModalContent}>
+              <Text style={styles.editorModalTitle}>Filter by Status</Text>
+              {[
+                { id: 'ALL', label: 'All Statuses' },
+                { id: 'COMPLETED', label: 'Completed' },
+                { id: 'IN_PROGRESS', label: 'In Progress' },
+                { id: 'PENDING', label: 'Pending' },
+              ].map(opt => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    styles.editorModalOption,
+                    editorStatusFilter === opt.id && styles.editorModalOptionActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setEditorStatusFilter(opt.id as any);
+                    setEditorStatusModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.editorModalOptionText,
+                      editorStatusFilter === opt.id && styles.editorModalOptionTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  {editorStatusFilter === opt.id && (
+                    <Ionicons name="checkmark" size={18} color="#EA580C" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     );
   }
@@ -2856,6 +3051,307 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  /* ========================================================
+     EDITOR MODE: YOUR TASKS STYLING
+     ======================================================== */
+  editorScrollContent: {
+    paddingHorizontal: 16,
+  },
+  editorHeaderSection: {
+    marginBottom: 14,
+  },
+  editorScreenTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  editorFilterCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  editorSearchBar: {
+    backgroundColor: '#FAF7F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EBE4DA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  editorSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1F2937',
+    paddingVertical: 0,
+  },
+  editorDropdown: {
+    backgroundColor: '#FAF7F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EBE4DA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    height: 44,
+    marginTop: 10,
+  },
+  editorDropdownText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  editorTaskList: {
+    gap: 12,
+  },
+  editorTaskCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  editorCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editorCardTagsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editorIdTag: {
+    backgroundColor: '#FFF2EB',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  editorIdTagText: {
+    color: '#EA580C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  editorCategoryTag: {
+    backgroundColor: '#FFE4E8',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editorCategoryTagText: {
+    color: '#E11D48',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editorStatusCompletedBadge: {
+    backgroundColor: '#DDF7E5',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editorStatusCompletedText: {
+    color: '#16A34A',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  editorStatusInProgressBadge: {
+    backgroundColor: '#E0F2FE',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editorStatusInProgressText: {
+    color: '#0284C7',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  editorStatusPendingBadge: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editorStatusPendingText: {
+    color: '#D97706',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  editorCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    flexWrap: 'wrap',
+  },
+  editorCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  editorCardClientInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    flexShrink: 1,
+  },
+  editorCardClientText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#71717A',
+    marginLeft: 4,
+  },
+  editorCardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  editorCardMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editorCardMetaText: {
+    fontSize: 12,
+    color: '#71717A',
+    marginLeft: 4,
+  },
+  editorNotUploadedBadge: {
+    backgroundColor: '#FFF2EB',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  editorNotUploadedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#C2410C',
+  },
+  editorCardBottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  editorPayoutPill: {
+    flex: 1,
+    height: 42,
+    backgroundColor: '#FAF7F2',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginRight: 10,
+  },
+  editorPayoutAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  editorPayoutDash: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  editorPayoutStatusLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+    marginLeft: 10,
+  },
+  editorCardActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editorMediaSquareBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FFF2EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editorChevronSquareBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  editorModalContent: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  editorModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  editorModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  editorModalOptionActive: {
+    backgroundColor: '#FFF7ED',
+  },
+  editorModalOptionText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  editorModalOptionTextActive: {
+    color: '#EA580C',
+    fontWeight: '700',
   },
 
 });
