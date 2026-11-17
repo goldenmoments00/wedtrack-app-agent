@@ -222,21 +222,21 @@ export function FloatingTabBar({
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         pointerEvents="box-none"
       >
-        {/* Frosted Glass Rounded Capsule Pill */}
+        {/* Frosted Glass Rounded Capsule Pill with Smoked Dark Shade */}
         <View style={styles.dockPill}>
           {/* Native Hardware Blur Effect */}
           <BlurView
-            intensity={100}
-            tint="light"
+            intensity={90}
+            tint="dark"
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Luminous Translucent Porcelain Glass Sheen */}
+          {/* Sleek Smoked Obsidian Glass Sheen */}
           <LinearGradient
             colors={[
-              'rgba(255, 255, 255, 0.96)',
-              'rgba(255, 255, 255, 0.88)',
-              'rgba(248, 250, 252, 0.84)',
+              'rgba(28, 30, 38, 0.88)',
+              'rgba(20, 22, 28, 0.84)',
+              'rgba(14, 16, 22, 0.82)',
             ]}
             locations={[0, 0.5, 1.0]}
             start={{ x: 0, y: 0 }}
@@ -276,7 +276,7 @@ export function FloatingTabBar({
               <Ionicons
                 name={isEditor ? 'document-text-outline' : 'apps-outline'}
                 size={22}
-                color="#64748B"
+                color="#CBD5E1"
               />
             )}
           </TouchableOpacity>
@@ -293,7 +293,7 @@ export function FloatingTabBar({
               <Ionicons
                 name={isEditor ? 'briefcase-outline' : 'list-outline'}
                 size={23}
-                color="#64748B"
+                color="#CBD5E1"
               />
             )}
           </TouchableOpacity>
@@ -313,7 +313,7 @@ export function FloatingTabBar({
             accessibilityLabel={isEditor ? 'Switch to Agent Mode' : 'Switch to Editor Mode'}
           >
             {activeSlot !== 2 && (
-              <Ionicons name="swap-horizontal" size={23} color="#64748B" />
+              <Ionicons name="swap-horizontal" size={23} color="#CBD5E1" />
             )}
           </TouchableOpacity>
 
@@ -329,7 +329,7 @@ export function FloatingTabBar({
               <Ionicons
                 name={isEditor ? 'wallet-outline' : 'calendar-outline'}
                 size={22}
-                color="#64748B"
+                color="#CBD5E1"
               />
             )}
           </TouchableOpacity>
@@ -343,7 +343,7 @@ export function FloatingTabBar({
             accessibilityLabel="Profile"
           >
             {activeSlot !== 4 && (
-              <Ionicons name="person-outline" size={22} color="#64748B" />
+              <Ionicons name="person-outline" size={22} color="#CBD5E1" />
             )}
           </TouchableOpacity>
         </View>
@@ -433,14 +433,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 32,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(20, 22, 28, 0.88)',
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
     elevation: 16,
   },
   specularRim: {
@@ -448,9 +448,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 16,
     right: 16,
-    height: 1.5,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.95,
+    height: 1.2,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   floatingCircle: {
     position: 'absolute',
