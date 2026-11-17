@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import {
   Platform,
   UIManager,
   Modal,
+  Animated,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -52,10 +54,20 @@ export default function TabOrdersScreen() {
   const [activeFilterModal, setActiveFilterModal] = useState<'STATUS' | 'MONTH' | 'YEAR' | 'SORT' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Submissions state for Agent
+  // Submissions state for Agent (Smart 1-Tap & Quick Custom Ingest)
   const [submittingAsgId, setSubmittingAsgId] = useState<string | null>(null);
-  const [photoCountInput, setPhotoCountInput] = useState('450');
-  const [videoCountInput, setVideoCountInput] = useState('35');
+  const [assignmentCounts, setAssignmentCounts] = useState<{ [id: string]: string }>({});
+  const [ingestToast, setIngestToast] = useState<string | null>(null);
+  const toastFade = useRef(new Animated.Value(0)).current;
+
+  const showSuccessToast = (msg: string) => {
+    setIngestToast(msg);
+    Animated.sequence([
+      Animated.timing(toastFade, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.delay(2200),
+      Animated.timing(toastFade, { toValue: 0, duration: 240, useNativeDriver: true }),
+    ]).start(() => setIngestToast(null));
+  };
 
   // Agent Smart Deliverables State
   const [deliverablesTab, setDeliverablesTab] = useState<'ALL' | 'PENDING' | 'SUBMITTED'>('ALL');
@@ -158,18 +170,39 @@ export default function TabOrdersScreen() {
 
     const totalSubmittedFiles = totalSubmittedPhotos + totalSubmittedVideos;
 
-    const handleConfirmSubmission = (eventId: string, assignmentId: string, role: any) => {
+    const handleConfirmSubmission = (
+      eventId: string,
+      assignmentId: string,
+      role: any,
+      customCount?: number
+    ) => {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      } catch {}
+
+      const isPhotoRole = role === 'PHOTOGRAPHER';
+      const countToRecord =
+        customCount !== undefined
+          ? customCount
+          : isPhotoRole
+          ? parseInt(assignmentCounts[assignmentId] || '450', 10) || 450
+          : parseInt(assignmentCounts[assignmentId] || '35', 10) || 35;
+
       submitShootCounts({
         eventId,
         assignmentId,
         role,
-        photoCount: role === 'PHOTOGRAPHER' ? parseInt(photoCountInput, 10) || 0 : undefined,
-        videoCount: role === 'VIDEOGRAPHER' ? parseInt(videoCountInput, 10) || 0 : undefined,
+        photoCount: isPhotoRole ? countToRecord : undefined,
+        videoCount: !isPhotoRole ? countToRecord : undefined,
       });
+
       setSubmittingAsgId(null);
-      Alert.alert(
-        'Counts Recorded Successfully',
-        `Your ${role.toLowerCase()} count has been recorded in the studio production ledger. Studio management will verify memory card material upon receipt.`
+      setExpandedAssignmentId(null);
+
+      showSuccessToast(
+        `✓ ${countToRecord.toLocaleString('en-IN')} ${
+          isPhotoRole ? 'Photos' : 'Clips'
+        } Logged Successfully!`
       );
     };
 
@@ -564,8 +597,10 @@ export default function TabOrdersScreen() {
               const dayNum = String(d.getDate()).padStart(2, '0');
               const monthShort = monthsShort[d.getMonth()] || 'NOV';
 
-              const currentCount = isPhoto ? photoCountInput : videoCountInput;
-              const setCount = isPhoto ? setPhotoCountInput : setVideoCountInput;
+              const currentCount =
+                assignmentCounts[assignment.id] || (isPhoto ? '450' : '35');
+              const setCount = (val: string) =>
+                setAssignmentCounts(prev => ({ ...prev, [assignment.id]: val }));
 
               const isExpanded = expandedAssignmentId === assignment.id;
 
@@ -687,6 +722,50 @@ export default function TabOrdersScreen() {
                         </View>
                       </TouchableOpacity>
 
+                      {/* Smart Quick-Ingest Bar (1-Tap for Standard Log, Options to Customize) */}
+                      {!isSubmitted && (
+                        <View style={styles.smartQuickIngestBar}>
+                          <TouchableOpacity
+                            style={styles.oneTapSubmitBtn}
+                            onPress={() => {
+                              handleConfirmSubmission(
+                                event.id,
+                                assignment.id,
+                                assignment.role,
+                                parseInt(currentCount, 10) || (isPhoto ? 450 : 35)
+                              );
+                            }}
+                            activeOpacity={0.85}
+                          >
+                            <Ionicons name="flash" size={13} color="#FFFFFF" />
+                            <Text style={styles.oneTapSubmitText}>
+                              1-Tap Ingest ({currentCount} {isPhoto ? 'Photos' : 'Clips'})
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.adjustCountsBtn,
+                              {
+                                backgroundColor: isDark ? 'rgba(255, 85, 0, 0.12)' : '#FFF7ED',
+                                borderColor: isDark ? 'rgba(255, 85, 0, 0.25)' : '#FED7AA',
+                              },
+                            ]}
+                            onPress={() => toggleExpand(assignment.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.adjustCountsText}>
+                              {isExpanded ? 'Hide' : 'Options'}
+                            </Text>
+                            <Ionicons
+                              name={isExpanded ? 'chevron-up' : 'options-outline'}
+                              size={13}
+                              color="#FF5500"
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
                       {/* Expanded Section: Shows ALL Details ONLY for the open event */}
                       {isExpanded && (
                         <View style={styles.expandedDetailsSection}>
@@ -747,170 +826,176 @@ export default function TabOrdersScreen() {
                           </View>
 
                           {/* Deliverables Action / Record Box */}
-                          <View style={{ marginTop: 6 }}>
-                        {isSubmitted ? (
-                          /* Display Verified Submitted Record */
-                          <View style={styles.submittedVerifiedBox}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                                <Text style={[styles.verifiedCountNum, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                                  {assignment.submissionCount} {isPhoto ? 'RAW Photos' : '4K Clips'} Logged
-                                </Text>
+                          <View style={{ marginTop: 8 }}>
+                            {isSubmitted ? (
+                              /* Display Verified Submitted Record */
+                              <View style={styles.submittedVerifiedBox}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                                    <Text style={[styles.verifiedCountNum, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                                      {assignment.submissionCount} {isPhoto ? 'RAW Photos' : '4K Clips'} Logged
+                                    </Text>
+                                  </View>
+                                  <Text style={styles.verifiedIdText}>
+                                    #ING-{assignment.id.slice(-4).toUpperCase()}
+                                  </Text>
+                                </View>
                               </View>
-                              <Text style={styles.verifiedIdText}>
-                                #ING-{assignment.id.slice(-4).toUpperCase()}
-                              </Text>
-                            </View>
+                            ) : (
+                              /* Expanded Ingest Form - DIRECT ACCESS (No intermediate click) */
+                              <View
+                                style={[
+                                  styles.smartInputCard,
+                                  {
+                                    backgroundColor: isDark ? 'rgba(28, 20, 24, 0.95)' : '#F9FAFB',
+                                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                                  },
+                                ]}
+                              >
+                                <Text style={[styles.inputHeading, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                                  Enter Final {isPhoto ? 'Photo Count' : 'Video Footage Clips'}
+                                </Text>
+
+                                {/* Stepper Row */}
+                                <View style={styles.stepperRow}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.stepperBtn,
+                                      { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
+                                    ]}
+                                    onPress={() => {
+                                      const val = Math.max(
+                                        0,
+                                        (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5)
+                                      );
+                                      setCount(String(val));
+                                    }}
+                                  >
+                                    <Ionicons name="remove" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
+                                  </TouchableOpacity>
+
+                                  <TextInput
+                                    value={currentCount}
+                                    onChangeText={setCount}
+                                    keyboardType="numeric"
+                                    style={[
+                                      styles.stepperInput,
+                                      {
+                                        backgroundColor: isDark ? 'rgba(34, 22, 26, 0.9)' : '#FFFFFF',
+                                        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D1D5DB',
+                                        color: isDark ? '#FFFFFF' : '#111827',
+                                      },
+                                    ]}
+                                  />
+
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.stepperBtn,
+                                      { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
+                                    ]}
+                                    onPress={() => {
+                                      const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
+                                      setCount(String(val));
+                                    }}
+                                  >
+                                    <Ionicons name="add" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
+                                  </TouchableOpacity>
+                                </View>
+
+                                {/* Quick Presets */}
+                                <View style={styles.presetsRow}>
+                                  {(isPhoto
+                                    ? ['350', '450', '650', '900']
+                                    : ['20', '35', '50', '75']
+                                  ).map(preset => {
+                                    const isSelected = currentCount === preset;
+                                    return (
+                                      <TouchableOpacity
+                                        key={preset}
+                                        onPress={() => setCount(preset)}
+                                        style={[
+                                          styles.presetChip,
+                                          isSelected
+                                            ? { backgroundColor: '#FF5500', borderColor: '#FF5500' }
+                                            : {
+                                                backgroundColor: isDark ? 'rgba(46, 28, 33, 0.7)' : '#F3F4F6',
+                                                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                                              },
+                                        ]}
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.presetChipText,
+                                            isSelected && { color: '#FFFFFF', fontWeight: '800' },
+                                          ]}
+                                        >
+                                          {preset} {isPhoto ? 'photos' : 'clips'}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+
+                                {/* Memory Card Label */}
+                                <Text style={[styles.labelSmall, { color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 10 }]}>
+                                  Memory Card Label / Handover Remarks:
+                                </Text>
+                                <TextInput
+                                  value={cardRemarks[assignment.id] || ''}
+                                  onChangeText={txt =>
+                                    setCardRemarks(prev => ({ ...prev, [assignment.id]: txt }))
+                                  }
+                                  placeholder="e.g. Card A: Sony Tough 128GB, Card B: SD 64GB"
+                                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                                  style={[
+                                    styles.remarksInput,
+                                    {
+                                      backgroundColor: isDark ? 'rgba(34, 22, 26, 0.9)' : '#FFFFFF',
+                                      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D1D5DB',
+                                      color: isDark ? '#FFFFFF' : '#111827',
+                                    },
+                                  ]}
+                                />
+
+                                {/* Action Buttons */}
+                                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                                  <TouchableOpacity
+                                    style={styles.confirmSubmitBtn}
+                                    onPress={() =>
+                                      handleConfirmSubmission(
+                                        event.id,
+                                        assignment.id,
+                                        assignment.role,
+                                        parseInt(currentCount, 10) || (isPhoto ? 450 : 35)
+                                      )
+                                    }
+                                  >
+                                    <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
+                                    <Text style={styles.confirmSubmitText}>
+                                      Confirm & Record {currentCount} {isPhoto ? 'Photos' : 'Clips'}
+                                    </Text>
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.cancelSubmitBtn,
+                                      {
+                                        borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#D1D5DB',
+                                      },
+                                    ]}
+                                    onPress={() => setExpandedAssignmentId(null)}
+                                  >
+                                    <Text style={[styles.cancelSubmitText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
+                                      Close
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
                           </View>
-                        ) : submittingAsgId === assignment.id ? (
-                      /* Expanded Ingest Form */
-                      <View
-                        style={[
-                          styles.smartInputCard,
-                          {
-                            backgroundColor: isDark ? 'rgba(28, 20, 24, 0.95)' : '#F9FAFB',
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.inputHeading, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                          Enter Final {isPhoto ? 'Photo Count' : 'Video Footage Clips'}
-                        </Text>
-
-                        {/* Stepper Row */}
-                        <View style={styles.stepperRow}>
-                          <TouchableOpacity
-                            style={[
-                              styles.stepperBtn,
-                              { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
-                            ]}
-                            onPress={() => {
-                              const val = Math.max(
-                                0,
-                                (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5)
-                              );
-                              setCount(String(val));
-                            }}
-                          >
-                            <Ionicons name="remove" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
-                          </TouchableOpacity>
-
-                          <TextInput
-                            value={currentCount}
-                            onChangeText={setCount}
-                            keyboardType="numeric"
-                            style={[
-                              styles.stepperInput,
-                              {
-                                backgroundColor: isDark ? 'rgba(34, 22, 26, 0.9)' : '#FFFFFF',
-                                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D1D5DB',
-                                color: isDark ? '#FFFFFF' : '#111827',
-                              },
-                            ]}
-                          />
-
-                          <TouchableOpacity
-                            style={[
-                              styles.stepperBtn,
-                              { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
-                            ]}
-                            onPress={() => {
-                              const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
-                              setCount(String(val));
-                            }}
-                          >
-                            <Ionicons name="add" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
-                          </TouchableOpacity>
                         </View>
-
-                        {/* Quick Presets */}
-                        <View style={styles.presetsRow}>
-                          {(isPhoto
-                            ? ['350', '450', '650', '900']
-                            : ['20', '35', '50', '75']
-                          ).map(preset => (
-                            <TouchableOpacity
-                              key={preset}
-                              onPress={() => setCount(preset)}
-                              style={[
-                                styles.presetChip,
-                                {
-                                  backgroundColor: isDark ? 'rgba(46, 28, 33, 0.7)' : '#F3F4F6',
-                                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
-                                },
-                              ]}
-                            >
-                              <Text style={styles.presetChipText}>
-                                {preset} {isPhoto ? 'photos' : 'clips'}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-
-                        {/* Memory Card Label */}
-                        <Text style={[styles.labelSmall, { color: isDark ? '#9CA3AF' : '#6B7280', marginTop: 10 }]}>
-                          Memory Card Label / Handover Remarks:
-                        </Text>
-                        <TextInput
-                          value={cardRemarks[assignment.id] || ''}
-                          onChangeText={txt =>
-                            setCardRemarks(prev => ({ ...prev, [assignment.id]: txt }))
-                          }
-                          placeholder="e.g. Card A: Sony Tough 128GB, Card B: SD 64GB"
-                          placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                          style={[
-                            styles.remarksInput,
-                            {
-                              backgroundColor: isDark ? 'rgba(34, 22, 26, 0.9)' : '#FFFFFF',
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D1D5DB',
-                              color: isDark ? '#FFFFFF' : '#111827',
-                            },
-                          ]}
-                        />
-
-                        {/* Action Buttons */}
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                          <TouchableOpacity
-                            style={styles.confirmSubmitBtn}
-                            onPress={() =>
-                              handleConfirmSubmission(event.id, assignment.id, assignment.role)
-                            }
-                          >
-                            <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
-                            <Text style={styles.confirmSubmitText}>Confirm & Record Ingest</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[
-                              styles.cancelSubmitBtn,
-                              {
-                                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#D1D5DB',
-                              },
-                            ]}
-                            onPress={() => setSubmittingAsgId(null)}
-                          >
-                            <Text style={[styles.cancelSubmitText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
-                              Cancel
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      /* Action Trigger Button */
-                      <TouchableOpacity
-                        style={styles.triggerSubmitBtn}
-                        onPress={() => setSubmittingAsgId(assignment.id)}
-                        activeOpacity={0.85}
-                      >
-                        <Ionicons name="cloud-upload-outline" size={14} color="#FFFFFF" />
-                        <Text style={styles.triggerSubmitText}>Submit</Text>
-                        <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              )}
+                      )}
             </View>
           </View>
         </View>
@@ -918,7 +1003,21 @@ export default function TabOrdersScreen() {
         })
       )}
     </ScrollView>
-      </LinearGradient>
+
+    {/* Floating Success Notification Toast */}
+    {ingestToast && (
+      <Animated.View
+        style={[
+          styles.toastBanner,
+          { opacity: toastFade, bottom: insets.bottom + 90 },
+        ]}
+        pointerEvents="none"
+      >
+        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+        <Text style={styles.toastBannerText}>{ingestToast}</Text>
+      </Animated.View>
+    )}
+  </LinearGradient>
     );
   }
 
@@ -2036,6 +2135,78 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+
+  /* 1-Tap Quick Ingest Bar */
+  smartQuickIngestBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  oneTapSubmitBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FF5500',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#FF5500',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  oneTapSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  adjustCountsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  adjustCountsText: {
+    color: '#FF5500',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+
+  /* Non-blocking Floating Success Toast */
+  toastBanner: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 999,
+  },
+  toastBannerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
   },
 
   /* ============================================================== */
