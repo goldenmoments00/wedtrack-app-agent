@@ -65,6 +65,10 @@ interface DemoStoreContextType {
   removeCrew: (eventId: string, assignmentId: string) => void;
   updateMaterialReceipt: (eventId: string, assignmentId: string, received: boolean) => void;
   submitShootCounts: (input: SubmitShootCountsInput) => void;
+  updateAssignmentStatus: (eventId: string, assignmentId: string, status: any) => void;
+  updateAssignmentPay: (eventId: string, assignmentId: string, pay: number) => void;
+  updateAssignmentCount: (eventId: string, assignmentId: string, count: number) => void;
+  addEvent: (event: Omit<EventScheduleItem, 'id'>) => EventScheduleItem;
 
   // Editing Actions
   claimTask: (taskId: string, editorId: string, editorName: string) => boolean;
@@ -456,6 +460,59 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
       })
     );
     logActivity('SUBMIT_COUNTS', 'EVENT', input.eventId, input.eventId, `Submitted ${input.role} count`);
+  };
+
+  // Update Assignment Status
+  const updateAssignmentStatus = (eventId: string, assignmentId: string, status: any) => {
+    setEvents(prev =>
+      prev.map(evt => {
+        if (evt.id !== eventId) return evt;
+        return {
+          ...evt,
+          assignments: evt.assignments.map(a => (a.id === assignmentId ? { ...a, status } : a)),
+        };
+      })
+    );
+    logActivity('UPDATE_ASSIGNMENT_STATUS', 'EVENT', eventId, eventId, `Updated assignment status to ${status}`);
+  };
+
+  // Update Assignment Pay / Rate
+  const updateAssignmentPay = (eventId: string, assignmentId: string, pay: number) => {
+    setEvents(prev =>
+      prev.map(evt => {
+        if (evt.id !== eventId) return evt;
+        return {
+          ...evt,
+          assignments: evt.assignments.map(a => (a.id === assignmentId ? { ...a, assignmentPay: pay } : a)),
+        };
+      })
+    );
+    logActivity('UPDATE_ASSIGNMENT_PAY', 'EVENT', eventId, eventId, `Updated assignment rate to ₹${pay}`);
+  };
+
+  // Update Assignment Count
+  const updateAssignmentCount = (eventId: string, assignmentId: string, count: number) => {
+    setEvents(prev =>
+      prev.map(evt => {
+        if (evt.id !== eventId) return evt;
+        return {
+          ...evt,
+          assignments: evt.assignments.map(a => (a.id === assignmentId ? { ...a, submissionCount: count } : a)),
+        };
+      })
+    );
+    logActivity('UPDATE_ASSIGNMENT_COUNT', 'EVENT', eventId, eventId, `Updated media count to ${count}`);
+  };
+
+  // Add Event
+  const addEvent = (eventInput: Omit<EventScheduleItem, 'id'>): EventScheduleItem => {
+    const newEvent: EventScheduleItem = {
+      ...eventInput,
+      id: `evt-custom-${Date.now()}`,
+    };
+    setEvents(prev => [newEvent, ...prev]);
+    logActivity('CREATE_EVENT', 'EVENT', newEvent.id, newEvent.id, `Created event: ${newEvent.eventTypeName}`);
+    return newEvent;
   };
 
   // Editor Claim Task (EDR-02)
@@ -1155,6 +1212,10 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         removeCrew,
         updateMaterialReceipt,
         submitShootCounts,
+        updateAssignmentStatus,
+        updateAssignmentPay,
+        updateAssignmentCount,
+        addEvent,
 
         claimTask,
         releaseTask,

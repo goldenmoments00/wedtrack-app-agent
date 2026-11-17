@@ -49,6 +49,13 @@ export default function OrderDetailScreen() {
     assignEditorToTask,
     deleteEditingTask,
     autoGenerateEditingPipeline,
+    assignCrew,
+    removeCrew,
+    updateMaterialReceipt,
+    updateAssignmentStatus,
+    updateAssignmentPay,
+    updateAssignmentCount,
+    addEvent,
   } = useDemoStore();
   const { colors, typography, spacing, radii } = useTheme();
 
@@ -58,6 +65,25 @@ export default function OrderDetailScreen() {
   // Editing Tab State
   const [isAddDeliverableModalVisible, setIsAddDeliverableModalVisible] = useState(false);
   const [reassigningTaskId, setReassigningTaskId] = useState<string | null>(null);
+
+  // Events & Assignments State
+  const [isAddEventModalVisible, setIsAddEventModalVisible] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState('');
+  const [newEventVenue, setNewEventVenue] = useState('');
+  const [newEventSide, setNewEventSide] = useState<'BRIDE' | 'GROOM' | 'BOTH'>('BOTH');
+  const [assigningCrewEventId, setAssigningCrewEventId] = useState<string | null>(null);
+  const [assigningRole, setAssigningRole] = useState<'PHOTOGRAPHER' | 'VIDEOGRAPHER'>('PHOTOGRAPHER');
+  const [assigningPay, setAssigningPay] = useState('2000');
+  const [editingAssignment, setEditingAssignment] = useState<{
+    eventId: string;
+    assignmentId: string;
+    agentName: string;
+    pay: number;
+    count: number;
+  } | null>(null);
+  const [editPayInput, setEditPayInput] = useState('');
+  const [editCountInput, setEditCountInput] = useState('');
 
   // New Deliverable Form State
   const [newTitle, setNewTitle] = useState('');
@@ -99,6 +125,7 @@ export default function OrderDetailScreen() {
     orderTasks.length > 0 ? Math.round((completedTasksCount / orderTasks.length) * 100) : 0;
 
   const availableEditors = team.filter(m => m.capabilities.editing && m.isActive);
+  const availableShooters = team.filter(m => m.capabilities.shooting && m.isActive);
 
   const getCategoryMeta = (cat: EditingCategory) => {
     switch (cat) {
@@ -249,6 +276,148 @@ export default function OrderDetailScreen() {
         },
       },
     ]);
+  };
+
+  // Events & Assignments Handlers
+  const formatEventHeaderDate = (startTime: string) => {
+    try {
+      const d = new Date(startTime);
+      if (isNaN(d.getTime())) return startTime;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch {
+      return startTime;
+    }
+  };
+
+  const handleToggleReceived = (eventId: string, assignmentId: string, current: boolean) => {
+    try {
+      Haptics.selectionAsync().catch(() => {});
+    } catch {}
+    updateMaterialReceipt(eventId, assignmentId, !current);
+  };
+
+  const handleQuickAssignmentStatus = (eventId: string, assignmentId: string, currentStatus: string) => {
+    Alert.alert('Update Assignment Status', 'Select status for this crew assignment:', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: '• Assigned',
+        onPress: () => {
+          updateAssignmentStatus(eventId, assignmentId, 'ASSIGNED');
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          } catch {}
+        },
+      },
+      {
+        text: '✓ Completed',
+        onPress: () => {
+          updateAssignmentStatus(eventId, assignmentId, 'COMPLETED');
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          } catch {}
+        },
+      },
+      {
+        text: '⏱ Confirmed',
+        onPress: () => {
+          updateAssignmentStatus(eventId, assignmentId, 'CONFIRMED');
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          } catch {}
+        },
+      },
+    ]);
+  };
+
+  const handleQuickPay = (eventId: string, assignmentId: string, currentPay: number) => {
+    setEditingAssignment({
+      eventId,
+      assignmentId,
+      agentName: '',
+      pay: currentPay,
+      count: 0,
+    });
+    setEditPayInput(String(currentPay || ''));
+    setEditCountInput('');
+  };
+
+  const handleQuickCount = (eventId: string, assignmentId: string, currentCount: number) => {
+    setEditingAssignment({
+      eventId,
+      assignmentId,
+      agentName: '',
+      pay: 0,
+      count: currentCount,
+    });
+    setEditCountInput(String(currentCount || '0'));
+    setEditPayInput('');
+  };
+
+  const handleSaveAssignmentEdit = () => {
+    if (!editingAssignment) return;
+    if (editPayInput !== '') {
+      const payNum = parseInt(editPayInput, 10);
+      if (!isNaN(payNum)) {
+        updateAssignmentPay(editingAssignment.eventId, editingAssignment.assignmentId, payNum);
+      }
+    }
+    if (editCountInput !== '') {
+      const countNum = parseInt(editCountInput, 10);
+      if (!isNaN(countNum)) {
+        updateAssignmentCount(editingAssignment.eventId, editingAssignment.assignmentId, countNum);
+      }
+    }
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    setEditingAssignment(null);
+  };
+
+  const handleCreateEvent = () => {
+    if (!newEventTitle.trim()) {
+      Alert.alert('Title Required', 'Please enter an event or ceremony name.');
+      return;
+    }
+    const created = addEvent({
+      orderId: order.id,
+      tenantOrderNumber: order.tenantOrderNumber,
+      orderTitle: order.title,
+      eventTypeId: `et-${Date.now()}`,
+      eventTypeName: newEventTitle.trim().toUpperCase(),
+      side: newEventSide,
+      startTime: newEventDate.trim() || new Date().toISOString(),
+      venueName: newEventVenue.trim() || order.venueLocation || 'Studio Venue',
+      venueAddress: newEventVenue.trim() || order.venueLocation || 'Studio Venue',
+      status: 'UNASSIGNED',
+      photographersNeeded: 1,
+      videographersNeeded: 1,
+      assignments: [],
+      notes: '',
+    });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    setIsAddEventModalVisible(false);
+    setNewEventTitle('');
+    setNewEventDate('');
+    setNewEventVenue('');
+    Alert.alert('Event Added', `"${created.eventTypeName}" has been created.`);
+  };
+
+  const handleAssignCrewMember = (agentId: string) => {
+    if (!assigningCrewEventId) return;
+    const payNum = parseInt(assigningPay, 10) || 0;
+    assignCrew(assigningCrewEventId, agentId, assigningRole, false, payNum);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    setAssigningCrewEventId(null);
+    Alert.alert('Crew Assigned', 'Crew member has been allocated to the event.');
   };
 
   const handleCreateDeliverable = () => {
@@ -604,45 +773,184 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {/* TAB 2: EVENTS & CREW */}
+        {/* TAB 2: EVENTS & ASSIGNMENTS (Exact Match to User Reference) */}
         {activeTab === 'EVENTS' && (
           <View style={{ marginTop: spacing.sm }}>
-            {orderEvents.map(evt => (
-              <TouchableOpacity
-                key={evt.id}
-                onPress={() => router.push(`/events/${evt.id}` as any)}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginBottom: spacing.sm }]}
-              >
-                <View style={styles.topRow}>
-                  <Text style={[typography.headline, { color: colors.textPrimary }]}>{evt.eventTypeName}</Text>
-                  <StatusBadge label={evt.status} size="sm" />
-                </View>
-                <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: 2 }]}>
-                  {new Date(evt.startTime).toLocaleString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: 'numeric',
-                    minute: 'numeric',
-                    hour12: true,
-                  })} · {evt.venueName}
-                </Text>
+            <View style={styles.refCardContainer}>
+              {/* Top Orange Banner: EVENTS & ASSIGNMENTS */}
+              <View style={styles.refEventsHeaderBar}>
+                <Text style={styles.refEventsHeaderText}>EVENTS & ASSIGNMENTS</Text>
+                <TouchableOpacity
+                  style={styles.refAddEventBtn}
+                  onPress={() => setIsAddEventModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add" size={15} color="#FFFFFF" />
+                  <Text style={styles.refAddEventBtnText}>Add Event</Text>
+                </TouchableOpacity>
+              </View>
 
-                <View style={[styles.crewAllocBox, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                  <Text style={[typography.caption2, { color: colors.textMuted }]}>CREW ALLOCATED:</Text>
-                  {evt.assignments.length === 0 ? (
-                    <Text style={[typography.footnote, { color: colors.warningText, marginTop: 2 }]}>
-                      ⚠️ No crew assigned yet
-                    </Text>
-                  ) : (
-                    evt.assignments.map(a => (
-                      <Text key={a.id} style={[typography.caption1, { color: colors.textPrimary, marginTop: 2 }]}>
-                        • {a.agentName} ({a.role}{a.isPrimary ? ' · Primary' : ''})
-                      </Text>
-                    ))
-                  )}
+              {/* Events List */}
+              {orderEvents.length === 0 ? (
+                <View style={styles.refEmptyBox}>
+                  <Ionicons name="calendar-outline" size={32} color="#EA580C" />
+                  <Text style={styles.refEmptyTitle}>No Events Configured</Text>
+                  <Text style={styles.refEmptySubtext}>
+                    Track Ashirbd, Pre-Wedding, Haldi, Wedding, Reception and crew allocations.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.refGenPipelineBtn, { backgroundColor: '#EA580C', marginTop: 14 }]}
+                    onPress={() => setIsAddEventModalVisible(true)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="add" size={15} color="#FFFFFF" />
+                    <Text style={styles.refGenPipelineText}>+ Add First Event</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-            ))}
+              ) : (
+                orderEvents.map((evt, evtIdx) => {
+                  const isLastEvt = evtIdx === orderEvents.length - 1;
+
+                  return (
+                    <View
+                      key={evt.id}
+                      style={[
+                        styles.refEvtItem,
+                        !isLastEvt && { borderBottomWidth: 4, borderBottomColor: '#F1F5F9' },
+                      ]}
+                    >
+                      {/* Orange Sub-Header Bar */}
+                      <View style={styles.refEvtHeader}>
+                        <View style={styles.refEvtHeaderLeft}>
+                          <Ionicons name="calendar-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.refEvtHeaderText} numberOfLines={1}>
+                            {evt.eventTypeName.toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.refEvtHeaderRight}>
+                          <Text style={styles.refEvtHeaderMeta} numberOfLines={1}>
+                            {formatEventHeaderDate(evt.startTime)} • 📍 {evt.venueName}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Green Left Bar & Crew Assignments */}
+                      <View style={styles.refEvtBody}>
+                        {evt.assignments.length === 0 ? (
+                          <View style={styles.refEvtEmptyRow}>
+                            <Text style={styles.refEvtEmptyText}>No assignments yet</Text>
+                            <TouchableOpacity
+                              style={styles.refEvtAssignBtn}
+                              onPress={() => {
+                                setAssigningCrewEventId(evt.id);
+                                setAssigningRole('PHOTOGRAPHER');
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="person-add-outline" size={12} color="#EA580C" />
+                              <Text style={styles.refEvtAssignBtnText}>+ Assign Crew</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          evt.assignments.map((asg, asgIdx) => {
+                            const isLastAsg = asgIdx === evt.assignments.length - 1;
+                            const isPhotographer = asg.role === 'PHOTOGRAPHER';
+                            const countVal = asg.submissionCount ?? 0;
+                            const payVal = asg.assignmentPay ?? 0;
+
+                            return (
+                              <View
+                                key={asg.id}
+                                style={[
+                                  styles.refAsgRow,
+                                  !isLastAsg && { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+                                ]}
+                              >
+                                {/* Left: Role Icon + Agent Name */}
+                                <View style={styles.refAsgLeft}>
+                                  <Ionicons
+                                    name={isPhotographer ? 'camera-outline' : 'videocam-outline'}
+                                    size={16}
+                                    color="#0D9488"
+                                    style={{ marginRight: 5 }}
+                                  />
+                                  <Text style={styles.refAsgName} numberOfLines={1}>
+                                    {asg.agentName}
+                                  </Text>
+                                </View>
+
+                                {/* Right: Controls Group */}
+                                <View style={styles.refAsgRight}>
+                                  {/* Count Pill */}
+                                  <TouchableOpacity
+                                    style={styles.refCountPill}
+                                    onPress={() => handleQuickCount(evt.id, asg.id, countVal)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={styles.refCountText}>{countVal}</Text>
+                                  </TouchableOpacity>
+
+                                  {/* Received Badge */}
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.refReceivedBadge,
+                                      asg.materialReceived ? styles.refReceivedBadgeTrue : styles.refReceivedBadgeFalse,
+                                    ]}
+                                    onPress={() => handleToggleReceived(evt.id, asg.id, asg.materialReceived)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Ionicons
+                                      name={asg.materialReceived ? 'checkmark' : 'square-outline'}
+                                      size={11}
+                                      color={asg.materialReceived ? '#FFFFFF' : '#9CA3AF'}
+                                      style={{ marginRight: 3 }}
+                                    />
+                                    <Text
+                                      style={[
+                                        styles.refReceivedText,
+                                        asg.materialReceived ? styles.refReceivedTextTrue : styles.refReceivedTextFalse,
+                                      ]}
+                                    >
+                                      Received
+                                    </Text>
+                                  </TouchableOpacity>
+
+                                  {/* Rate Column */}
+                                  <TouchableOpacity
+                                    style={styles.refRateCol}
+                                    onPress={() => handleQuickPay(evt.id, asg.id, payVal)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={styles.refRateAmount}>
+                                      {payVal > 0 ? `₹${payVal.toLocaleString('en-IN')}` : '₹0'}
+                                    </Text>
+                                    <Text style={styles.refRateSubtext}>
+                                      {payVal > 0 ? 'Correct rate' : 'Edit rate'}
+                                    </Text>
+                                  </TouchableOpacity>
+
+                                  {/* Status Dropdown Pill */}
+                                  <TouchableOpacity
+                                    style={styles.refStatusPill}
+                                    onPress={() => handleQuickAssignmentStatus(evt.id, asg.id, asg.status)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={styles.refStatusPillText}>
+                                      {asg.status === 'COMPLETED' ? 'Completed' : 'Assigned'}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={11} color="#92400E" style={{ marginLeft: 3 }} />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
           </View>
         )}
 
@@ -1410,6 +1718,298 @@ export default function OrderDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* MODAL: ADD EVENT */}
+      <Modal
+        visible={isAddEventModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsAddEventModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View
+            style={[
+              styles.modalContentCard,
+              { backgroundColor: colors.surface, borderRadius: radii.xl },
+            ]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="calendar-outline" size={20} color="#EA580C" />
+                <Text style={[typography.headline, { color: colors.textPrimary }]}>
+                  Add Event & Ceremony
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsAddEventModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  CEREMONY / EVENT NAME *
+                </Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                  placeholder="e.g. Groom Ashirbd, Bride Haldi, Wedding"
+                  placeholderTextColor={colors.textMuted}
+                  value={newEventTitle}
+                  onChangeText={setNewEventTitle}
+                />
+              </View>
+
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  CEREMONY DATE & TIME
+                </Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                  placeholder="YYYY-MM-DDTHH:mm:ss (or 2026-01-23T08:30:00)"
+                  placeholderTextColor={colors.textMuted}
+                  value={newEventDate}
+                  onChangeText={setNewEventDate}
+                />
+              </View>
+
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  VENUE / LOCATION
+                </Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                  placeholder="e.g. IGM Chowmuny, Harinakhola"
+                  placeholderTextColor={colors.textMuted}
+                  value={newEventVenue}
+                  onChangeText={setNewEventVenue}
+                />
+              </View>
+
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  CEREMONY SIDE
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['BOTH', 'BRIDE', 'GROOM'] as const).map(side => (
+                    <TouchableOpacity
+                      key={side}
+                      onPress={() => setNewEventSide(side)}
+                      style={[
+                        styles.sidePill,
+                        newEventSide === side && { backgroundColor: '#EA580C', borderColor: '#EA580C' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sidePillText,
+                          newEventSide === side && { color: '#FFFFFF', fontWeight: '700' },
+                        ]}
+                      >
+                        {side}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                <Button
+                  title="Cancel"
+                  variant="outline"
+                  onPress={() => setIsAddEventModalVisible(false)}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Create Event"
+                  onPress={handleCreateEvent}
+                  style={{ flex: 1, backgroundColor: '#EA580C' }}
+                />
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* MODAL: ASSIGN CREW TO EVENT */}
+      <Modal
+        visible={assigningCrewEventId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAssigningCrewEventId(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setAssigningCrewEventId(null)}
+        >
+          <View
+            style={[
+              styles.modalContentCard,
+              { backgroundColor: colors.surface, borderRadius: radii.xl },
+            ]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="person-add-outline" size={20} color="#EA580C" />
+                <Text style={[typography.headline, { color: colors.textPrimary }]}>
+                  Assign Crew Member
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setAssigningCrewEventId(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalFormGroup}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>SELECT ROLE</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['PHOTOGRAPHER', 'VIDEOGRAPHER'] as const).map(role => (
+                  <TouchableOpacity
+                    key={role}
+                    onPress={() => setAssigningRole(role)}
+                    style={[
+                      styles.sidePill,
+                      assigningRole === role && { backgroundColor: '#0D9488', borderColor: '#0D9488' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={role === 'PHOTOGRAPHER' ? 'camera-outline' : 'videocam-outline'}
+                      size={14}
+                      color={assigningRole === role ? '#FFFFFF' : '#6B7280'}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      style={[
+                        styles.sidePillText,
+                        assigningRole === role && { color: '#FFFFFF', fontWeight: '700' },
+                      ]}
+                    >
+                      {role === 'PHOTOGRAPHER' ? 'Photographer' : 'Videographer'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.modalFormGroup}>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>AGREED PAY (₹)</Text>
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                placeholder="e.g. 2000"
+                keyboardType="number-pad"
+                value={assigningPay}
+                onChangeText={setAssigningPay}
+              />
+            </View>
+
+            <Text style={[styles.modalLabel, { color: colors.textSecondary, marginBottom: 8 }]}>
+              SELECT AVAILABLE SHOOTER
+            </Text>
+            <ScrollView style={{ maxHeight: 220 }}>
+              {availableShooters.map(agent => (
+                <TouchableOpacity
+                  key={agent.id}
+                  onPress={() => handleAssignCrewMember(agent.id)}
+                  style={styles.crewSelectRow}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons
+                      name={agent.profession === 'VIDEOGRAPHER' ? 'videocam-outline' : 'camera-outline'}
+                      size={18}
+                      color="#0D9488"
+                    />
+                    <View>
+                      <Text style={styles.crewSelectName}>{agent.name}</Text>
+                      <Text style={styles.crewSelectRole}>{agent.profession || 'SHOOTER'}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="add-circle-outline" size={20} color="#EA580C" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* MODAL: EDIT ASSIGNMENT (Rate & Count) */}
+      <Modal
+        visible={editingAssignment !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingAssignment(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View
+            style={[
+              styles.modalContentCard,
+              { backgroundColor: colors.surface, borderRadius: radii.xl },
+            ]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="create-outline" size={20} color="#EA580C" />
+                <Text style={[typography.headline, { color: colors.textPrimary }]}>
+                  Edit Assignment Details
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setEditingAssignment(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {editCountInput !== '' && (
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  DELIVERED PHOTO / VIDEO COUNT
+                </Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                  placeholder="e.g. 250"
+                  keyboardType="number-pad"
+                  value={editCountInput}
+                  onChangeText={setEditCountInput}
+                />
+              </View>
+            )}
+
+            {editPayInput !== '' && (
+              <View style={styles.modalFormGroup}>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>
+                  AGREED ASSIGNMENT PAY (₹)
+                </Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: colors.surfaceSubtle, color: colors.textPrimary, borderColor: colors.border }]}
+                  placeholder="e.g. 2500"
+                  keyboardType="number-pad"
+                  value={editPayInput}
+                  onChangeText={setEditPayInput}
+                />
+              </View>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={() => setEditingAssignment(null)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                onPress={handleSaveAssignmentEdit}
+                style={{ flex: 1, backgroundColor: '#EA580C' }}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </ScreenWrapper>
   );
 }
@@ -1890,5 +2490,224 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: '#78350F',
+  },
+
+  /* Events Reference Layout Styles */
+  refEventsHeaderBar: {
+    backgroundColor: '#EA580C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  refEventsHeaderText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  refAddEventBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  refAddEventBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  refEvtItem: {
+    backgroundColor: '#FFFFFF',
+  },
+  refEvtHeader: {
+    backgroundColor: '#F95721',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  refEvtHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  refEvtHeaderText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  refEvtHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    maxWidth: '52%',
+  },
+  refEvtHeaderMeta: {
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  refEvtBody: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#16A34A',
+    backgroundColor: '#FFFFFF',
+  },
+  refEvtEmptyRow: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  refEvtEmptyText: {
+    fontSize: 12.5,
+    fontStyle: 'italic',
+    color: '#6B7280',
+  },
+  refEvtAssignBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  refEvtAssignBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EA580C',
+  },
+  refAsgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  refAsgLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 2,
+  },
+  refAsgName: {
+    color: '#0D9488',
+    fontWeight: '600',
+    fontSize: 11.5,
+  },
+  refAsgRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  refCountPill: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 26,
+    alignItems: 'center',
+  },
+  refCountText: {
+    color: '#374151',
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  refReceivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  refReceivedBadgeTrue: {
+    backgroundColor: '#991B1B',
+  },
+  refReceivedBadgeFalse: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    borderWidth: 1,
+  },
+  refReceivedText: {
+    fontSize: 9.5,
+    fontWeight: '600',
+  },
+  refReceivedTextTrue: {
+    color: '#FFFFFF',
+  },
+  refReceivedTextFalse: {
+    color: '#6B7280',
+  },
+  refRateCol: {
+    alignItems: 'flex-end',
+    minWidth: 46,
+  },
+  refRateSubtext: {
+    color: '#6B7280',
+    fontSize: 8.5,
+    marginTop: -1,
+  },
+  refStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDF7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+  },
+  refStatusPillText: {
+    color: '#78350F',
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  sidePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sidePillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  crewSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  crewSelectName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  crewSelectRole: {
+    fontSize: 11,
+    color: '#64748B',
   },
 });

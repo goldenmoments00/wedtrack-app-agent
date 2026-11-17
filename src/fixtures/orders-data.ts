@@ -11,7 +11,7 @@ export const INITIAL_ORDERS: OrderDetail[] = [
     status: 'CONFIRMED',
     priority: 'PINNED',
     eventDate: '2026-11-12T10:00:00Z',
-    eventCount: 1,
+    eventCount: 14,
     packageName: 'Corporate Event —',
     venueLocation: 'Hotel Radisson Blu, Kolkata',
     bookingConsentRecorded: true,
