@@ -1037,8 +1037,9 @@ export default function TabIndexScreen() {
                   size="sm"
                   category="agent_shoot"
                   showBubbleByDefault={false}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  bubbleAlign="right"
+                  onLongPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     setPreShootDrawerVisible(true);
                   }}
                 />

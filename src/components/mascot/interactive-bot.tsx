@@ -26,6 +26,9 @@ interface InteractiveBotProps {
   size?: 'xs' | 'sm' | 'md' | 'lg';
   category?: MessageCategory;
   onPress?: (message: string) => void;
+  onSinglePress?: (message: string) => void;
+  onDoublePress?: () => void;
+  onLongPress?: () => void;
   showBubbleByDefault?: boolean;
   initialMessage?: string;
   bubbleAlign?: 'center' | 'left' | 'right';
@@ -36,6 +39,9 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   size = 'md',
   category,
   onPress,
+  onSinglePress,
+  onDoublePress,
+  onLongPress,
   showBubbleByDefault = false,
   initialMessage,
   bubbleAlign = 'center',
@@ -48,10 +54,13 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
 
   const historyRef = useRef<string[]>([]);
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pokeCountRef = useRef(0);
+  const lastTapRef = useRef<number>(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionIndexRef = useRef<number>(0);
 
-  // Floating animation
+  // Floating & Bounce animations
   const floatAnim = useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(1)).current;
   const bubbleAnim = useRef(new Animated.Value(showBubbleByDefault ? 1 : 0)).current;
 
   // Scale mapping
@@ -113,38 +122,92 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
     }, 5000);
   };
 
-  // Handle Tap / Poke
-  const handlePoke = () => {
+  // 1. One Click: Normal and common greetings / tips
+  const triggerSingleTap = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    pokeCountRef.current += 1;
+    const msg = getRandomRobotMessage(category || 'welcome', historyRef.current);
+    historyRef.current.push(msg.id);
+    if (historyRef.current.length > 10) historyRef.current.shift();
 
-    if (pokeCountRef.current % 4 === 0) {
-      speak('Lathi dumu 😡', 'angry');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const randomExp: BotExpression =
+      msg.category === 'achievement'
+        ? 'sparkle'
+        : msg.category === 'funny_office'
+        ? 'cool'
+        : 'happy';
+
+    speak(msg.text, randomExp);
+    if (onSinglePress) onSinglePress(msg.text);
+    if (onPress) onPress(msg.text);
+  };
+
+  // 2. Double Click: Action reaction
+  const triggerDoubleTap = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    // Dynamic bounce pop on action
+    Animated.sequence([
+      Animated.timing(bounceAnim, {
+        toValue: 1.18,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        friction: 4,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const actionList: { text: string; exp: BotExpression }[] = [
+      { text: 'Lathi dumu 😡', exp: 'angry' },
+      { text: 'muuahhhhh 😘', exp: 'love' },
+      { text: 'Action mode ON! ⚡🎬', exp: 'sparkle' },
+      { text: 'Abhishek da dekhche kintu! 👀', exp: 'cool' },
+    ];
+
+    const currentAction = actionList[actionIndexRef.current % actionList.length];
+    actionIndexRef.current += 1;
+
+    speak(currentAction.text, currentAction.exp);
+    if (onDoublePress) onDoublePress();
+  };
+
+  // Tap handler distinguishing Single vs Double Click
+  const handleTap = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 280;
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      triggerDoubleTap();
+      lastTapRef.current = 0;
     } else {
-      const msg = getRandomRobotMessage(category, historyRef.current);
-      historyRef.current.push(msg.id);
-      if (historyRef.current.length > 10) historyRef.current.shift();
-
-      const randomExp: BotExpression =
-        msg.category === 'achievement'
-          ? 'sparkle'
-          : msg.category === 'funny_office'
-          ? 'cool'
-          : 'happy';
-
-      speak(msg.text, randomExp);
-      if (onPress) onPress(msg.text);
+      lastTapRef.current = now;
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = setTimeout(() => {
+        triggerSingleTap();
+        singleTapTimerRef.current = null;
+      }, DOUBLE_TAP_DELAY);
     }
   };
 
-  // Handle Long Press / Pet
-  const handlePet = () => {
+  // 3. Long Press: Open Pre-Shoot Briefing
+  const handleLongPress = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    speak('muuahhhhh 😘', 'love');
-    setTimeout(() => {
-      if (expression === 'love') setExpression('happy');
-    }, 4000);
+    if (singleTapTimerRef.current) {
+      clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = null;
+    }
+    if (onLongPress) {
+      onLongPress();
+    } else {
+      speak('muuahhhhh 😘', 'love');
+    }
   };
 
   // Render Eyes based on current expression
@@ -241,6 +304,7 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
         <Animated.View
           style={[
             styles.speechBubble,
+            { bottom: baseHeight + 14 },
             bubbleAlign === 'right' && { right: 0 },
             bubbleAlign === 'left' && { left: 0 },
             {
@@ -264,20 +328,20 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
           <View
             style={[
               styles.speechBubbleTail,
-              bubbleAlign === 'right' && { right: Math.max(16, (baseWidth / 2) - 5), left: undefined },
-              bubbleAlign === 'left' && { left: Math.max(16, (baseWidth / 2) - 5), right: undefined },
+              bubbleAlign === 'right' && { right: Math.max(20, Math.round((baseWidth + 30) / 2 - 6)), left: undefined },
+              bubbleAlign === 'left' && { left: Math.max(20, Math.round((baseWidth + 30) / 2 - 6)), right: undefined },
             ]}
           />
         </Animated.View>
       )}
 
       {/* Interactive Floating Mascot Body */}
-      <Animated.View style={{ transform: [{ translateY: floatAnim }] }}>
+      <Animated.View style={{ transform: [{ translateY: floatAnim }, { scale: bounceAnim }] }}>
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handlePoke}
-          onLongPress={handlePet}
-          delayLongPress={350}
+          onPress={handleTap}
+          onLongPress={handleLongPress}
+          delayLongPress={380}
           style={[styles.botTouchTarget, { width: baseWidth, height: baseHeight }]}
         >
           {/* 1. Antenna */}
