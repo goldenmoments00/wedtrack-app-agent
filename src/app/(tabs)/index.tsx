@@ -27,6 +27,7 @@ import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
 import { AchievementBadge } from '@/components/achievements/achievement-badge';
 import { AchievementsModal } from '@/components/achievements/achievements-modal';
+import { InteractiveBot } from '@/components/mascot/interactive-bot';
 
 export default function TabIndexScreen() {
   const insets = useSafeAreaInsets();
@@ -1295,6 +1296,17 @@ export default function TabIndexScreen() {
           </View>
         </ScrollView>
 
+        {/* Floating Shoot Day Companion Mascot ("Chhotu") */}
+        <View style={styles.agentFloatingBot} pointerEvents="box-none">
+          <InteractiveBot
+            size="sm"
+            category="agent_shoot"
+            bubbleAlign="right"
+            showBubbleByDefault={true}
+            initialMessage="SD card & battery check korecho? 📸"
+          />
+        </View>
+
         {/* Modal: View & Award Agent Achievements */}
         <AchievementsModal
           visible={heroAchievementsVisible}
@@ -1584,6 +1596,12 @@ export default function TabIndexScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  agentFloatingBot: {
+    position: 'absolute',
+    bottom: 96,
+    right: 14,
+    zIndex: 9999,
   },
   scrollContent: {
     paddingBottom: 96,
