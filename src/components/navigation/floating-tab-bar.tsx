@@ -203,16 +203,6 @@ export function FloatingTabBar({
 
   const bottomY = topY + dockHeight;
 
-  // Solid Pure White Backing for the scoop cradle cavity
-  const cradleWhiteFillPath = `
-    M ${leftShoulder - 1} ${topY - 14}
-    L ${leftShoulder} ${topY}
-    C ${cp1X} ${topY}, ${cp2X} ${cradleY}, ${currentNotchX} ${cradleY}
-    C ${cp3X} ${cradleY}, ${cp4X} ${topY}, ${rightShoulder} ${topY}
-    L ${rightShoulder + 1} ${topY - 14}
-    Z
-  `;
-
   // Closed Path for Floating Smoked Dark Dock with the Dynamic Liquid Drop Scoop
   const liquidDropDockPath = `
     M 0 ${topY + r}
@@ -292,13 +282,7 @@ export function FloatingTabBar({
           height={totalBoxHeight}
           style={StyleSheet.absoluteFill}
         >
-          {/* 1. Pure Opaque White Fill inside the cradle cavity: guarantees 100% clean white space between black dock and orange button */}
-          <Path
-            d={cradleWhiteFillPath}
-            fill="#FFFFFF"
-          />
-
-          {/* 2. Smoked Dark Glass Base Fill */}
+          {/* 1. Smoked Dark Glass Base Fill with Transparent Liquid Scoop Cutout */}
           <Path
             d={liquidDropDockPath}
             fill="rgba(18, 20, 26, 0.96)"
@@ -306,7 +290,7 @@ export function FloatingTabBar({
             strokeWidth={1.2}
           />
 
-          {/* 3. Optical Glass Specular Rim Highlight along the drop curve */}
+          {/* 2. Optical Glass Specular Rim Highlight along the drop curve */}
           <Path
             d={topSpecularWavePath}
             fill="none"
