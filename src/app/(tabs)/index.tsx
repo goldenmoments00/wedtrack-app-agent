@@ -932,77 +932,77 @@ export default function TabIndexScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* 1. Fresh Top Hero Card (Frosted Glass with DP Ambient Blur & Color Cast) */}
-          <View style={styles.freshHeroCard}>
-            {/* Ambient blurred backdrop directly from Agent's DP */}
-            <Image
-              source={{ uri: agentAvatar }}
-              style={StyleSheet.absoluteFill}
-              blurRadius={36}
-              resizeMode="cover"
-            />
+          {/* 1. Fresh Top Hero Card Wrapper with Hovering Mascot */}
+          <View style={styles.freshHeroCardWrapper}>
+            <View style={styles.freshHeroCard}>
+              {/* Ambient blurred backdrop directly from Agent's DP */}
+              <Image
+                source={{ uri: agentAvatar }}
+                style={StyleSheet.absoluteFill}
+                blurRadius={36}
+                resizeMode="cover"
+              />
 
-            {/* Frosted Glass Overlay with dynamic gradient and specular highlights */}
-            <LinearGradient
-              colors={['rgba(255, 85, 0, 0.45)', 'rgba(38, 20, 26, 0.76)', 'rgba(18, 12, 18, 0.90)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+              {/* Frosted Glass Overlay with dynamic gradient and specular highlights */}
+              <LinearGradient
+                colors={['rgba(255, 85, 0, 0.45)', 'rgba(38, 20, 26, 0.76)', 'rgba(18, 12, 18, 0.90)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
 
-            {/* Top row: Avatar, Name, Role & Month Earnings */}
-            <View style={styles.freshHeroTopRow}>
-              <View style={styles.freshHeroProfileCol}>
-                <TouchableOpacity
-                  style={{ width: 48, height: 48, position: 'relative' }}
-                  onPress={() => setHeroAchievementsVisible(true)}
-                  activeOpacity={0.8}
-                  accessibilityLabel="View your studio achievements"
-                >
-                  <View style={styles.freshHeroAvatarCircle}>
-                    <Image
-                      source={{ uri: agentAvatar }}
-                      style={styles.freshHeroAvatarImage}
-                      resizeMode="cover"
-                    />
+              {/* Top row: Avatar, Name, Role & Month Earnings */}
+              <View style={styles.freshHeroTopRow}>
+                <View style={styles.freshHeroProfileCol}>
+                  <TouchableOpacity
+                    style={{ width: 48, height: 48, position: 'relative' }}
+                    onPress={() => setHeroAchievementsVisible(true)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="View your studio achievements"
+                  >
+                    <View style={styles.freshHeroAvatarCircle}>
+                      <Image
+                        source={{ uri: agentAvatar }}
+                        style={styles.freshHeroAvatarImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    <View style={styles.freshHeroBadgePin}>
+                      <AchievementBadge
+                        achievement={{
+                          shape: 'PENTAGON',
+                          iconName: 'sparkles',
+                          badgeText: 'L3',
+                          gradient: ['#818CF8', '#4F46E5'],
+                          accentColor: '#C7D2FE',
+                        }}
+                        size="mini"
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  <View>
+                    <Text style={styles.freshHeroName}>{session?.name || 'Karan Malhotra'}</Text>
+                    <Text style={styles.freshHeroRole}>Lead Photographer • Crew</Text>
                   </View>
-                  <View style={styles.freshHeroBadgePin}>
-                    <AchievementBadge
-                      achievement={{
-                        shape: 'PENTAGON',
-                        iconName: 'sparkles',
-                        badgeText: 'L3',
-                        gradient: ['#818CF8', '#4F46E5'],
-                        accentColor: '#C7D2FE',
-                      }}
-                      size="mini"
-                    />
-                  </View>
-                </TouchableOpacity>
-                <View>
-                  <Text style={styles.freshHeroName}>{session?.name || 'Karan Malhotra'}</Text>
-                  <Text style={styles.freshHeroRole}>Lead Photographer • Crew</Text>
                 </View>
-              </View>
 
-              <View style={styles.freshHeroEarningsCol}>
-                <Text style={styles.freshHeroEarningsLabel}>THIS MONTH</Text>
-                <Text style={styles.freshHeroEarningsAmount}>
-                  ₹ {novPay > 0 ? novPay.toLocaleString('en-IN') : '42,000'}
-                </Text>
-                <View style={styles.freshHeroEarningsBadge}>
-                  <Text style={styles.freshHeroEarningsBadgeText}>
-                    5 Shoots Confirmed
+                <View style={styles.freshHeroEarningsCol}>
+                  <Text style={styles.freshHeroEarningsLabel}>THIS MONTH</Text>
+                  <Text style={styles.freshHeroEarningsAmount}>
+                    ₹ {novPay > 0 ? novPay.toLocaleString('en-IN') : '42,000'}
                   </Text>
+                  <View style={styles.freshHeroEarningsBadge}>
+                    <Text style={styles.freshHeroEarningsBadgeText}>
+                      5 Shoots Confirmed
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Bottom row: Next Event highlight banner + Pre-Shoot Briefing Mascot Card (Option 2) */}
-            {nextShoot && (
-              <View style={styles.freshHeroBannerRow}>
+              {/* Bottom row: Next Event highlight banner */}
+              {nextShoot && (
                 <TouchableOpacity
-                  style={styles.freshHeroNextBanner}
+                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 68 }]}
                   onPress={() => router.push(`/events/${nextShoot.id}`)}
                   activeOpacity={0.85}
                 >
@@ -1031,30 +1031,21 @@ export default function TabIndexScreen() {
                     <Ionicons name="arrow-forward" size={17} color="#FF5500" />
                   </View>
                 </TouchableOpacity>
+              )}
+            </View>
 
-                {/* Option 2: Pre-Shoot Briefing Mascot Card in Hero */}
-                {mascotEnabled && (
-                  <TouchableOpacity
-                    style={styles.freshHeroBriefingCard}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setPreShootDrawerVisible(true);
-                    }}
-                    activeOpacity={0.85}
-                    accessibilityLabel="Open Pre-Shoot Briefing Checklist"
-                  >
-                    <View style={styles.briefingMascotWrapper} pointerEvents="none">
-                      <InteractiveBot
-                        size="xs"
-                        category="agent_shoot"
-                        showBubbleByDefault={false}
-                      />
-                    </View>
-                    <View style={styles.briefingBadge}>
-                      <Text style={styles.briefingBadgeText}>SHOOT BRIEF</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+            {/* Hovering Mascot: Crosses on both profile card & bg, larger size, no box, no text */}
+            {mascotEnabled && (
+              <View style={styles.heroHoveringMascot} pointerEvents="box-none">
+                <InteractiveBot
+                  size="sm"
+                  category="agent_shoot"
+                  showBubbleByDefault={false}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setPreShootDrawerVisible(true);
+                  }}
+                />
               </View>
             )}
           </View>
@@ -2758,53 +2749,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
-  freshHeroBannerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
-    gap: 8,
+  freshHeroCardWrapper: {
+    position: 'relative',
+    overflow: 'visible',
+    zIndex: 100,
   },
   freshHeroNextBanner: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderRadius: 18,
     padding: 10,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  freshHeroBriefingCard: {
-    width: 80,
-    height: 62,
-    backgroundColor: 'rgba(255, 85, 0, 0.18)',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 85, 0, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 3,
-    overflow: 'visible',
-  },
-  briefingMascotWrapper: {
-    width: 48,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-  },
-  briefingBadge: {
-    backgroundColor: '#FF5500',
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginTop: -2,
-  },
-  briefingBadgeText: {
-    fontSize: 7.5,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
+  heroHoveringMascot: {
+    position: 'absolute',
+    bottom: -24,
+    right: 12,
+    zIndex: 999,
   },
   editorFloatingBot: {
     position: 'absolute',
