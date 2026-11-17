@@ -1002,7 +1002,7 @@ export default function TabIndexScreen() {
               {/* Bottom row: Next Event highlight banner */}
               {nextShoot && (
                 <TouchableOpacity
-                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 68 }]}
+                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 56 }]}
                   onPress={() => router.push(`/events/${nextShoot.id}`)}
                   activeOpacity={0.85}
                 >
@@ -2766,8 +2766,8 @@ const styles = StyleSheet.create({
   },
   heroHoveringMascot: {
     position: 'absolute',
-    bottom: -24,
-    right: 12,
+    bottom: -14,
+    right: 14,
     zIndex: 999,
   },
   editorFloatingBot: {
