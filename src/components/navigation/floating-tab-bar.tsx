@@ -44,14 +44,14 @@ export function FloatingTabBar({
 
   // Floating Dock Layout Measurements
   const dockHeight = 60;
-  const topY = 22;
+  const topY = 24;
   const totalBoxHeight = topY + dockHeight + 8;
   const dockMarginH = 14;
   const dockBottom = Math.max(insets.bottom, 10) + 6;
 
   // Corner radius & slot distribution
   const r = 18; // Pill corner radius
-  const sidePadding = 22; // Inset so edge slots (0 and 4) are safely within flat top line
+  const sidePadding = 24; // Inset so edge slots (0 and 4) are safely within flat top line
 
   // Screen width measurement: bar width is screen width minus horizontal margins
   const screenWidth = Dimensions.get('window').width;
@@ -186,8 +186,8 @@ export function FloatingTabBar({
   const vibrantOrange = '#FF5500';
 
   // Liquid "Drop Effect" Curve Calculations (matching user reference)
-  const scoopDepth = 28; // Cradle depth where circle sits
-  const scoopSpan = 35; // Half-span of the drop scoop
+  const scoopDepth = 30; // Cradle depth where circle sits
+  const scoopSpan = 38; // Half-span of the drop scoop (generous white space clearance)
   const cradleY = topY + scoopDepth;
 
   const leftShoulder = Math.max(r, currentNotchX - scoopSpan);
@@ -202,6 +202,16 @@ export function FloatingTabBar({
   const cp4X = rightShoulder - rightArm * 0.45;
 
   const bottomY = topY + dockHeight;
+
+  // Solid Pure White Backing for the scoop cradle cavity
+  const cradleWhiteFillPath = `
+    M ${leftShoulder - 1} ${topY - 14}
+    L ${leftShoulder} ${topY}
+    C ${cp1X} ${topY}, ${cp2X} ${cradleY}, ${currentNotchX} ${cradleY}
+    C ${cp3X} ${cradleY}, ${cp4X} ${topY}, ${rightShoulder} ${topY}
+    L ${rightShoulder + 1} ${topY - 14}
+    Z
+  `;
 
   // Closed Path for Floating Smoked Dark Dock with the Dynamic Liquid Drop Scoop
   const liquidDropDockPath = `
@@ -282,35 +292,41 @@ export function FloatingTabBar({
           height={totalBoxHeight}
           style={StyleSheet.absoluteFill}
         >
-          {/* Smoked Dark Glass Base Fill */}
+          {/* 1. Pure Opaque White Fill inside the cradle cavity: guarantees 100% clean white space between black dock and orange button */}
+          <Path
+            d={cradleWhiteFillPath}
+            fill="#FFFFFF"
+          />
+
+          {/* 2. Smoked Dark Glass Base Fill */}
           <Path
             d={liquidDropDockPath}
-            fill="rgba(20, 22, 28, 0.94)"
+            fill="rgba(18, 20, 26, 0.96)"
             stroke="rgba(255, 255, 255, 0.16)"
             strokeWidth={1.2}
           />
 
-          {/* Optical Glass Specular Rim Highlight along the drop curve */}
+          {/* 3. Optical Glass Specular Rim Highlight along the drop curve */}
           <Path
             d={topSpecularWavePath}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.26)"
+            stroke="rgba(255, 255, 255, 0.32)"
             strokeWidth={1.5}
           />
         </Svg>
 
-        {/* Floating Radiant Orange Circular Button Nestled in the Drop Cradle */}
+        {/* Floating Radiant Orange Circular Button Nestled in the Drop Cradle with Generous White Space */}
         <Animated.View
           style={[
             styles.floatingCircle,
             {
-              left: Animated.subtract(notchAnim, 24),
-              top: 1, // Emerges 21px above dock top edge (22) and nestles into scoop cradle (depth=28 => 50)
+              left: Animated.subtract(notchAnim, 22),
+              top: 2, // Emerges 22px above dock top line (24) and leaves 8px bottom clearance to cradleY (54)
             },
           ]}
           pointerEvents="none"
         >
-          <Ionicons name={activeIcon} size={22} color="#FFFFFF" />
+          <Ionicons name={activeIcon} size={21} color="#FFFFFF" />
         </Animated.View>
 
         {/* Interactive Clickable Tabs Row (5 slots) */}
@@ -496,20 +512,20 @@ const styles = StyleSheet.create({
   },
   floatingCircle: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,
     shadowColor: '#FF5500',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.55,
-    shadowRadius: 12,
+    shadowRadius: 10,
     elevation: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
   },
   tabsRow: {
     position: 'absolute',
