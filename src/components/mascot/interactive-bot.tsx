@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { getRandomRobotMessage, MessageCategory } from '@/services/robot-personality';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Animated,
   Image,
-  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
-import { getRandomRobotMessage, MessageCategory, RobotMessage } from '@/services/robot-personality';
 
 export type BotExpression =
   | 'happy'
@@ -125,8 +124,8 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   // 1. One Click: Normal and common greetings / tips
   const triggerSingleTap = () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    } catch {}
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+    } catch { }
     const msg = getRandomRobotMessage(category || 'welcome', historyRef.current);
     historyRef.current.push(msg.id);
     if (historyRef.current.length > 10) historyRef.current.shift();
@@ -135,8 +134,8 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
       msg.category === 'achievement'
         ? 'sparkle'
         : msg.category === 'funny_office'
-        ? 'cool'
-        : 'happy';
+          ? 'cool'
+          : 'happy';
 
     speak(msg.text, randomExp);
     if (onSinglePress) onSinglePress(msg.text);
@@ -146,8 +145,8 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   // 2. Double Click: Action reaction
   const triggerDoubleTap = () => {
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-    } catch {}
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => { });
+    } catch { }
 
     // Dynamic bounce pop on action
     Animated.sequence([
@@ -203,8 +202,8 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   // 3. Long Press: Open Pre-Shoot Briefing
   const handleLongPress = () => {
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    } catch {}
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+    } catch { }
     if (singleTapTimerRef.current) {
       clearTimeout(singleTapTimerRef.current);
       singleTapTimerRef.current = null;

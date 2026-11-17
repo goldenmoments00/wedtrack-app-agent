@@ -174,13 +174,6 @@ export function FloatingTabBar({
     Z
   `;
 
-  // Stroke along the scoop notch
-  const notchStrokePath = `
-    M ${leftShoulder} ${topY}
-    C ${leftShoulder + 12} ${topY}, ${currentNotchX - 20} ${scoopDepth}, ${currentNotchX} ${scoopDepth}
-    C ${currentNotchX + 20} ${scoopDepth}, ${rightShoulder - 12} ${topY}, ${rightShoulder} ${topY}
-  `;
-
   // Determine active icon for floating circular button
   let activeIcon: keyof typeof Ionicons.glyphMap = 'apps';
   if (isEditor) {
@@ -227,20 +220,6 @@ export function FloatingTabBar({
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         pointerEvents="box-none"
       >
-        {/* Dynamic Vibrant Orange Pocket Behind Cutout Notch */}
-        <Animated.View
-          style={[
-            styles.orangePocket,
-            {
-              left: Animated.subtract(notchAnim, 42),
-              width: 84,
-              height: 52,
-              top: 0,
-              backgroundColor: vibrantOrange,
-            },
-          ]}
-        />
-
         {/* Solid Pure White Bar with Dynamic Fluid Cutout Notch */}
         <Svg
           width={barWidth}
@@ -251,17 +230,9 @@ export function FloatingTabBar({
             d={liquidPath}
             fill="#FFFFFF"
           />
-          {/* Subtle Orange Accent Stroke along the Scoop Notch */}
-          <Path
-            d={notchStrokePath}
-            fill="none"
-            stroke={vibrantOrange}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
         </Svg>
 
-        {/* Floating Pure White Circular Button in the Notch */}
+        {/* Floating Vibrant Orange Circular Button in the Notch */}
         <Animated.View
           style={[
             styles.floatingCircle,
@@ -272,7 +243,7 @@ export function FloatingTabBar({
           ]}
           pointerEvents="none"
         >
-          <Ionicons name={activeIcon} size={25} color="#111827" />
+          <Ionicons name={activeIcon} size={25} color="#FFFFFF" />
         </Animated.View>
 
         {/* Interactive Clickable Tabs Row (5 slots) */}
@@ -442,26 +413,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 999,
   },
-  orangePocket: {
-    position: 'absolute',
-    borderTopLeftRadius: 42,
-    borderTopRightRadius: 42,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
   floatingCircle: {
     position: 'absolute',
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,
-    shadowColor: '#000000',
+    shadowColor: '#FF5500',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 8,
   },
   tabsRow: {
