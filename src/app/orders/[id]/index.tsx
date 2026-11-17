@@ -26,6 +26,7 @@ import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
 import { OrderStatus } from '@/types/orders';
 import { EditingCategory, EditingTaskStatus } from '@/types/editing';
+import { QUICK_ACTION_ACTIVITIES, QuickActionItem } from '@/fixtures/settings-data';
 
 type OrderTabKey = 'OVERVIEW' | 'EVENTS' | 'EDITING' | 'ACTIVITIES' | 'MONEY' | 'CLIENT';
 
@@ -43,6 +44,8 @@ export default function OrderDetailScreen() {
     deleteOrder,
     togglePinOrder,
     updateActivityStatus,
+    addOrderActivity,
+    deleteOrderActivity,
     resetClientPin,
     updateTaskStatus,
     addEditingTask,
@@ -58,6 +61,17 @@ export default function OrderDetailScreen() {
     addEvent,
   } = useDemoStore();
   const { colors, typography, spacing, radii } = useTheme();
+
+  const isOwnerOrAdmin = session?.roles.includes('OWNER') || session?.roles.includes('ADMIN');
+  const isManager = session?.roles.includes('MANAGER');
+  const workspace = session?.activeWorkspace || 'OPERATIONS';
+  const isAgentView = workspace === 'SHOOTS' || (session?.roles.includes('AGENT') && !isOwnerOrAdmin && !isManager);
+  const isEditorView = workspace === 'EDITING' || (session?.roles.includes('EDITOR') && !isOwnerOrAdmin && !isManager);
+  const isAgentOrEditor = isAgentView || isEditorView;
+  const canEditBooking = isOwnerOrAdmin || (isManager && permissions.orderSections.client === 'edit');
+  const canSeeMoney = permissions.money.revenue !== 'none';
+  const canSeeCost = permissions.money.cost !== 'none';
+  const canSeeMargin = permissions.money.margin !== 'none';
 
   const [activeTab, setActiveTab] = useState<OrderTabKey>('OVERVIEW');
   const [issuedOneTimePin, setIssuedOneTimePin] = useState<string | null>(null);
@@ -94,6 +108,11 @@ export default function OrderDetailScreen() {
   const [newDueDate, setNewDueDate] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newIsReviewable, setNewIsReviewable] = useState(true);
+
+  // Activities Tab State
+  const [isQuickActionsModalVisible, setIsQuickActionsModalVisible] = useState(false);
+  const [customActivityTitle, setCustomActivityTitle] = useState('');
+  const [isCustomActivityExpanded, setIsCustomActivityExpanded] = useState(false);
 
   const order = orders.find(o => o.id === id || o.tenantOrderNumber === id);
 
@@ -295,6 +314,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleToggleReceived = (eventId: string, assignmentId: string, current: boolean) => {
+    if (isAgentOrEditor) return;
     try {
       Haptics.selectionAsync().catch(() => {});
     } catch {}
@@ -302,6 +322,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleQuickAssignmentStatus = (eventId: string, assignmentId: string, currentStatus: string) => {
+    if (isAgentOrEditor) return;
     Alert.alert('Update Assignment Status', 'Select status for this crew assignment:', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -335,6 +356,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleQuickPay = (eventId: string, assignmentId: string, currentPay: number) => {
+    if (isAgentOrEditor || !canSeeCost) return;
     setEditingAssignment({
       eventId,
       assignmentId,
@@ -379,6 +401,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleCreateEvent = () => {
+    if (isAgentOrEditor) return;
     if (!newEventTitle.trim()) {
       Alert.alert('Title Required', 'Please enter an event or ceremony name.');
       return;
@@ -410,6 +433,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleAssignCrewMember = (agentId: string) => {
+    if (isAgentOrEditor) return;
     if (!assigningCrewEventId) return;
     const payNum = parseInt(assigningPay, 10) || 0;
     assignCrew(assigningCrewEventId, agentId, assigningRole, false, payNum);
@@ -484,12 +508,75 @@ export default function OrderDetailScreen() {
     setNewEditorId('');
   };
 
-  const isOwnerOrAdmin = session?.roles.includes('OWNER') || session?.roles.includes('ADMIN');
-  const isManager = session?.roles.includes('MANAGER');
-  const canEditBooking = isOwnerOrAdmin || (isManager && permissions.orderSections.client === 'edit');
-  const canSeeMoney = permissions.money.revenue !== 'none';
-  const canSeeCost = permissions.money.cost !== 'none';
-  const canSeeMargin = permissions.money.margin !== 'none';
+  // Activity Quick Actions & Custom Creation
+  const handleAddQuickAction = (qa: QuickActionItem) => {
+    const alreadyExists = activities.some(
+      a => a.orderId === order.id && a.title.toLowerCase() === qa.title.toLowerCase()
+    );
+    if (alreadyExists) {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      } catch {}
+      return;
+    }
+    addOrderActivity({
+      orderId: order.id,
+      tenantOrderNumber: order.tenantOrderNumber,
+      title: qa.title,
+      description: `Workflow stage for ${qa.title}`,
+      statuses: qa.statuses,
+      currentStatusIndex: 0,
+      currentStatus: qa.statuses[0],
+      isCompleted: false,
+      assignedStaffName: session?.name || 'Staff',
+      assignedStaffId: session?.id,
+    });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+  };
+
+  const handleAddCustomActivity = () => {
+    if (!customActivityTitle.trim()) {
+      Alert.alert('Title Required', 'Please enter a name for the custom activity.');
+      return;
+    }
+    addOrderActivity({
+      orderId: order.id,
+      tenantOrderNumber: order.tenantOrderNumber,
+      title: customActivityTitle.trim(),
+      description: 'Custom activity workflow',
+      statuses: ['Pending', 'In Progress', 'Done'],
+      currentStatusIndex: 0,
+      currentStatus: 'Pending',
+      isCompleted: false,
+      assignedStaffName: session?.name || 'Staff',
+      assignedStaffId: session?.id,
+    });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    setCustomActivityTitle('');
+    setIsCustomActivityExpanded(false);
+    setIsQuickActionsModalVisible(false);
+    Alert.alert('Activity Created', `"${customActivityTitle.trim()}" has been created.`);
+  };
+
+  const handleDeleteActivity = (activityId: string, title: string) => {
+    Alert.alert('Remove Activity', `Remove "${title}" from this booking?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          deleteOrderActivity(activityId);
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          } catch {}
+        },
+      },
+    ]);
+  };
 
   // Share Public Link (CLIENT-01, CLIENT-02)
   const handleShareLink = async (type: 'BOOKING' | 'CONTRACT') => {
@@ -780,14 +867,16 @@ export default function OrderDetailScreen() {
               {/* Top Orange Banner: EVENTS & ASSIGNMENTS */}
               <View style={styles.refEventsHeaderBar}>
                 <Text style={styles.refEventsHeaderText}>EVENTS & ASSIGNMENTS</Text>
-                <TouchableOpacity
-                  style={styles.refAddEventBtn}
-                  onPress={() => setIsAddEventModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="add" size={15} color="#FFFFFF" />
-                  <Text style={styles.refAddEventBtnText}>Add Event</Text>
-                </TouchableOpacity>
+                {!isAgentOrEditor && (
+                  <TouchableOpacity
+                    style={styles.refAddEventBtn}
+                    onPress={() => setIsAddEventModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={15} color="#FFFFFF" />
+                    <Text style={styles.refAddEventBtnText}>Add Event</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Events List */}
@@ -839,17 +928,19 @@ export default function OrderDetailScreen() {
                         {evt.assignments.length === 0 ? (
                           <View style={styles.refEvtEmptyRow}>
                             <Text style={styles.refEvtEmptyText}>No assignments yet</Text>
-                            <TouchableOpacity
-                              style={styles.refEvtAssignBtn}
-                              onPress={() => {
-                                setAssigningCrewEventId(evt.id);
-                                setAssigningRole('PHOTOGRAPHER');
-                              }}
-                              activeOpacity={0.8}
-                            >
-                              <Ionicons name="person-add-outline" size={12} color="#EA580C" />
-                              <Text style={styles.refEvtAssignBtnText}>+ Assign Crew</Text>
-                            </TouchableOpacity>
+                            {!isAgentOrEditor && (
+                              <TouchableOpacity
+                                style={styles.refEvtAssignBtn}
+                                onPress={() => {
+                                  setAssigningCrewEventId(evt.id);
+                                  setAssigningRole('PHOTOGRAPHER');
+                                }}
+                                activeOpacity={0.8}
+                              >
+                                <Ionicons name="person-add-outline" size={12} color="#EA580C" />
+                                <Text style={styles.refEvtAssignBtnText}>+ Assign Crew</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         ) : (
                           evt.assignments.map((asg, asgIdx) => {
@@ -890,56 +981,63 @@ export default function OrderDetailScreen() {
                                     <Text style={styles.refCountText}>{countVal}</Text>
                                   </TouchableOpacity>
 
-                                  {/* Received Badge */}
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.refReceivedBadge,
-                                      asg.materialReceived ? styles.refReceivedBadgeTrue : styles.refReceivedBadgeFalse,
-                                    ]}
-                                    onPress={() => handleToggleReceived(evt.id, asg.id, asg.materialReceived)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Ionicons
-                                      name={asg.materialReceived ? 'checkmark' : 'square-outline'}
-                                      size={11}
-                                      color={asg.materialReceived ? '#FFFFFF' : '#9CA3AF'}
-                                      style={{ marginRight: 3 }}
-                                    />
-                                    <Text
-                                      style={[
-                                        styles.refReceivedText,
-                                        asg.materialReceived ? styles.refReceivedTextTrue : styles.refReceivedTextFalse,
-                                      ]}
-                                    >
-                                      Received
-                                    </Text>
-                                  </TouchableOpacity>
+                                  {/* 3 options hidden in Agent or Editor view */}
+                                  {!isAgentOrEditor && (
+                                    <>
+                                      {/* Received Badge */}
+                                      <TouchableOpacity
+                                        style={[
+                                          styles.refReceivedBadge,
+                                          asg.materialReceived ? styles.refReceivedBadgeTrue : styles.refReceivedBadgeFalse,
+                                        ]}
+                                        onPress={() => handleToggleReceived(evt.id, asg.id, asg.materialReceived)}
+                                        activeOpacity={0.7}
+                                      >
+                                        <Ionicons
+                                          name={asg.materialReceived ? 'checkmark' : 'square-outline'}
+                                          size={11}
+                                          color={asg.materialReceived ? '#FFFFFF' : '#9CA3AF'}
+                                          style={{ marginRight: 3 }}
+                                        />
+                                        <Text
+                                          style={[
+                                            styles.refReceivedText,
+                                            asg.materialReceived ? styles.refReceivedTextTrue : styles.refReceivedTextFalse,
+                                          ]}
+                                        >
+                                          Received
+                                        </Text>
+                                      </TouchableOpacity>
 
-                                  {/* Rate Column */}
-                                  <TouchableOpacity
-                                    style={styles.refRateCol}
-                                    onPress={() => handleQuickPay(evt.id, asg.id, payVal)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Text style={styles.refRateAmount}>
-                                      {payVal > 0 ? `₹${payVal.toLocaleString('en-IN')}` : '₹0'}
-                                    </Text>
-                                    <Text style={styles.refRateSubtext}>
-                                      {payVal > 0 ? 'Correct rate' : 'Edit rate'}
-                                    </Text>
-                                  </TouchableOpacity>
+                                      {/* Rate Column */}
+                                      {canSeeCost && (
+                                        <TouchableOpacity
+                                          style={styles.refRateCol}
+                                          onPress={() => handleQuickPay(evt.id, asg.id, payVal)}
+                                          activeOpacity={0.7}
+                                        >
+                                          <Text style={styles.refRateAmount}>
+                                            {payVal > 0 ? `₹${payVal.toLocaleString('en-IN')}` : '₹0'}
+                                          </Text>
+                                          <Text style={styles.refRateSubtext}>
+                                            {payVal > 0 ? 'Correct rate' : 'Edit rate'}
+                                          </Text>
+                                        </TouchableOpacity>
+                                      )}
 
-                                  {/* Status Dropdown Pill */}
-                                  <TouchableOpacity
-                                    style={styles.refStatusPill}
-                                    onPress={() => handleQuickAssignmentStatus(evt.id, asg.id, asg.status)}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Text style={styles.refStatusPillText}>
-                                      {asg.status === 'COMPLETED' ? 'Completed' : 'Assigned'}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={11} color="#92400E" style={{ marginLeft: 3 }} />
-                                  </TouchableOpacity>
+                                      {/* Status Dropdown Pill */}
+                                      <TouchableOpacity
+                                        style={styles.refStatusPill}
+                                        onPress={() => handleQuickAssignmentStatus(evt.id, asg.id, asg.status)}
+                                        activeOpacity={0.7}
+                                      >
+                                        <Text style={styles.refStatusPillText}>
+                                          {asg.status === 'COMPLETED' ? 'Completed' : 'Assigned'}
+                                        </Text>
+                                        <Ionicons name="chevron-down" size={11} color="#92400E" style={{ marginLeft: 3 }} />
+                                      </TouchableOpacity>
+                                    </>
+                                  )}
                                 </View>
                               </View>
                             );
@@ -962,14 +1060,16 @@ export default function OrderDetailScreen() {
               {/* Top Purple Banner: EDITING TASKS */}
               <View style={styles.refEditingHeaderBar}>
                 <Text style={styles.refEditingHeaderText}>EDITING TASKS</Text>
-                <TouchableOpacity
-                  style={styles.refAddBtn}
-                  onPress={() => setIsAddDeliverableModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="add" size={15} color="#FFFFFF" />
-                  <Text style={styles.refAddBtnText}>Add</Text>
-                </TouchableOpacity>
+                {!isAgentOrEditor && (
+                  <TouchableOpacity
+                    style={styles.refAddBtn}
+                    onPress={() => setIsAddDeliverableModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={15} color="#FFFFFF" />
+                    <Text style={styles.refAddBtnText}>Add</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Tasks List */}
@@ -1020,45 +1120,67 @@ export default function OrderDetailScreen() {
                         </View>
 
                         {/* Status Dropdown Pill */}
-                        <TouchableOpacity
-                          style={styles.refDropdownPill}
-                          onPress={() => handleQuickStatus(task.id, task.status)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.refDropdownPillText}>
-                            {task.status === 'COMPLETED'
-                              ? 'Completed'
-                              : task.status === 'IN_PROGRESS'
-                              ? 'In Progress'
-                              : 'Pending'}
-                          </Text>
-                          <Ionicons name="chevron-down" size={12} color="#78350F" />
-                        </TouchableOpacity>
+                        {!isAgentOrEditor ? (
+                          <TouchableOpacity
+                            style={styles.refDropdownPill}
+                            onPress={() => handleQuickStatus(task.id, task.status)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.refDropdownPillText}>
+                              {task.status === 'COMPLETED'
+                                ? 'Completed'
+                                : task.status === 'IN_PROGRESS'
+                                ? 'In Progress'
+                                : 'Pending'}
+                            </Text>
+                            <Ionicons name="chevron-down" size={12} color="#78350F" />
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.refDropdownPill}>
+                            <Text style={styles.refDropdownPillText}>
+                              {task.status === 'COMPLETED'
+                                ? 'Completed'
+                                : task.status === 'IN_PROGRESS'
+                                ? 'In Progress'
+                                : 'Pending'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Row 2: Assignee Selector (left) & Rate / Correct Rate (right) */}
                       <View style={styles.refRow2}>
                         {/* Assignee Pill */}
-                        <TouchableOpacity
-                          style={styles.refAssigneePill}
-                          onPress={() => setReassigningTaskId(task.id)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.refAssigneePillText} numberOfLines={1}>
-                            {task.editorName || 'Select Editor'}
-                          </Text>
-                          <Ionicons name="chevron-down" size={12} color="#78350F" />
-                        </TouchableOpacity>
+                        {!isAgentOrEditor ? (
+                          <TouchableOpacity
+                            style={styles.refAssigneePill}
+                            onPress={() => setReassigningTaskId(task.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.refAssigneePillText} numberOfLines={1}>
+                              {task.editorName || 'Select Editor'}
+                            </Text>
+                            <Ionicons name="chevron-down" size={12} color="#78350F" />
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.refAssigneePill}>
+                            <Text style={styles.refAssigneePillText} numberOfLines={1}>
+                              {task.editorName || 'Unassigned'}
+                            </Text>
+                          </View>
+                        )}
 
                         {/* Rate / Correct Rate */}
-                        <View style={styles.refRateBox}>
-                          <Text style={styles.refRateAmount}>
-                            {task.cost !== undefined && task.cost > 0
-                              ? `₹${task.cost.toLocaleString('en-IN')}`
-                              : '0'}
-                          </Text>
-                          <Text style={styles.refRateLabel}>Correct rate</Text>
-                        </View>
+                        {!isAgentOrEditor && canSeeCost && (
+                          <View style={styles.refRateBox}>
+                            <Text style={styles.refRateAmount}>
+                              {task.cost !== undefined && task.cost > 0
+                                ? `₹${task.cost.toLocaleString('en-IN')}`
+                                : '0'}
+                            </Text>
+                            <Text style={styles.refRateLabel}>Correct rate</Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Row 3: Subtitle / Specs (left) & Preview Button (right) */}
@@ -1090,57 +1212,167 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {/* TAB 4: ACTIVITIES */}
+        {/* TAB 4: ACTIVITIES (Exact Match to User Reference) */}
         {activeTab === 'ACTIVITIES' && (
           <View style={{ marginTop: spacing.sm }}>
-            <Text style={[typography.footnote, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
-              Standard workflow checklist activities for this booking:
-            </Text>
-            {orderActivities.map(act => (
-              <View
-                key={act.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginBottom: spacing.sm }]}
-              >
-                <View style={styles.topRow}>
-                  <Text style={[typography.headline, { color: colors.textPrimary }]}>{act.title}</Text>
-                  <StatusBadge
-                    label={act.isCompleted ? 'COMPLETED' : act.currentStatus}
-                    variant={act.isCompleted ? 'success' : 'info'}
-                    size="sm"
-                  />
-                </View>
-                <Text style={[typography.footnote, { color: colors.textSecondary, marginTop: 2 }]}>
-                  Assigned: {act.assignedStaffName || 'Staff'} · {act.description}
-                </Text>
-
-                {/* Status progression stepper */}
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm }}>
-                  {act.statuses.map((st, idx) => (
-                    <TouchableOpacity
-                      key={st}
-                      onPress={() => updateActivityStatus(act.id, idx)}
-                      style={[
-                        styles.statusStepBtn,
-                        {
-                          backgroundColor: idx <= act.currentStatusIndex ? colors.primary : colors.surfaceSubtle,
-                          borderColor: colors.border,
-                          borderRadius: radii.xs,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          typography.caption2,
-                          { color: idx <= act.currentStatusIndex ? colors.primaryText : colors.textSecondary },
-                        ]}
-                      >
-                        {st}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            <View style={styles.refCardContainer}>
+              {/* Top Teal Banner: ACTIVITIES */}
+              <View style={styles.actHeaderBar}>
+                <Text style={styles.actHeaderText}>ACTIVITIES</Text>
+                <TouchableOpacity
+                  style={styles.actHeaderAddBtn}
+                  onPress={() => setIsQuickActionsModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="flash-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.actHeaderAddBtnText}>Quick Actions</Text>
+                </TouchableOpacity>
               </View>
-            ))}
+
+              {/* Card Body */}
+              <View style={styles.actCardBody}>
+                {orderActivities.length === 0 ? (
+                  /* Empty state matching media_1794941503688_14792a67.png */
+                  <View style={styles.actEmptyContainer}>
+                    <Text style={styles.actEmptyText}>Nothing tracked yet.</Text>
+                    <TouchableOpacity
+                      style={styles.actAddDashedBtn}
+                      onPress={() => setIsQuickActionsModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.actAddDashedText}>+ Add activity</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  /* Tracked Activities List */
+                  <View style={styles.actList}>
+                    {orderActivities.map((act, idx) => {
+                      const isLast = idx === orderActivities.length - 1;
+                      return (
+                        <View
+                          key={act.id}
+                          style={[
+                            styles.actItem,
+                            !isLast && { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+                          ]}
+                        >
+                          {/* Row 1: Icon + Title on left, Status badge + Delete on right */}
+                          <View style={styles.actItemRow1}>
+                            <View style={styles.actTitleGroup}>
+                              <View style={styles.actClipboardIconBox}>
+                                <Ionicons name="clipboard-outline" size={18} color="#EA580C" />
+                              </View>
+                              <Text style={styles.actItemTitle}>{act.title}</Text>
+                            </View>
+
+                            <View style={styles.actStatusActions}>
+                              <View
+                                style={[
+                                  styles.actStatusBadge,
+                                  act.isCompleted ? styles.actStatusBadgeDone : styles.actStatusBadgePending,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.actStatusBadgeText,
+                                    act.isCompleted ? styles.actStatusBadgeTextDone : styles.actStatusBadgeTextPending,
+                                  ]}
+                                >
+                                  {act.isCompleted ? 'Done' : act.currentStatus}
+                                </Text>
+                              </View>
+
+                              <TouchableOpacity
+                                onPress={() => handleDeleteActivity(act.id, act.title)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={{ marginLeft: 6 }}
+                              >
+                                <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {/* Row 2: Status progression stepper */}
+                          <View style={styles.actStepperScroll}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                              <View style={styles.actStepperRow}>
+                                {act.statuses.map((st, stepIdx) => {
+                                  const isCurrent = stepIdx === act.currentStatusIndex;
+                                  const isPast = stepIdx < act.currentStatusIndex;
+                                  const isLastStep = stepIdx === act.statuses.length - 1;
+
+                                  return (
+                                    <View key={st} style={styles.actStepWrap}>
+                                      <TouchableOpacity
+                                        onPress={() => {
+                                          updateActivityStatus(act.id, stepIdx);
+                                          try {
+                                            Haptics.selectionAsync().catch(() => {});
+                                          } catch {}
+                                        }}
+                                        style={[
+                                          styles.actStepPill,
+                                          isCurrent
+                                            ? styles.actStepPillActive
+                                            : isPast
+                                            ? styles.actStepPillPast
+                                            : styles.actStepPillFuture,
+                                        ]}
+                                        activeOpacity={0.7}
+                                      >
+                                        {(isPast || (isCurrent && act.isCompleted)) && (
+                                          <Ionicons
+                                            name="checkmark"
+                                            size={11}
+                                            color={isCurrent ? '#FFFFFF' : '#0D9488'}
+                                            style={{ marginRight: 3 }}
+                                          />
+                                        )}
+                                        <Text
+                                          style={[
+                                            styles.actStepText,
+                                            isCurrent
+                                              ? styles.actStepTextActive
+                                              : isPast
+                                              ? styles.actStepTextPast
+                                              : styles.actStepTextFuture,
+                                          ]}
+                                        >
+                                          {st}
+                                        </Text>
+                                      </TouchableOpacity>
+                                      {!isLastStep && (
+                                        <Ionicons
+                                          name="arrow-forward"
+                                          size={11}
+                                          color="#CBD5E1"
+                                          style={{ marginHorizontal: 4 }}
+                                        />
+                                      )}
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            </ScrollView>
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    {/* Bottom Add Activity dashed button */}
+                    <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+                      <TouchableOpacity
+                        style={styles.actAddDashedBtn}
+                        onPress={() => setIsQuickActionsModalVisible(true)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actAddDashedText}>+ Add activity</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
           </View>
         )}
 
@@ -2010,6 +2242,123 @@ export default function OrderDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* MODAL / SHEET: QUICK ACTIONS (Exact match to User Reference media_1794941503720_ac8a9bfd.jpg) */}
+      <Modal
+        visible={isQuickActionsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsQuickActionsModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setIsQuickActionsModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%', alignItems: 'center' }}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              style={styles.qaModalCard}
+              onPress={e => e.stopPropagation?.()}
+            >
+              {/* Modal Header */}
+              <View style={styles.qaHeaderRow}>
+                <Text style={styles.qaHeaderTitle}>QUICK ACTIONS</Text>
+                <TouchableOpacity
+                  onPress={() => setIsQuickActionsModalVisible(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={22} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                style={{ maxHeight: 460 }}
+              >
+                {/* Quick Actions List matching screenshot */}
+                <View style={styles.qaList}>
+                  {QUICK_ACTION_ACTIVITIES.map(qa => {
+                    const alreadyAdded = orderActivities.some(
+                      a => a.title.toLowerCase() === qa.title.toLowerCase()
+                    );
+
+                    return (
+                      <TouchableOpacity
+                        key={qa.id}
+                        style={styles.qaItemRow}
+                        onPress={() => handleAddQuickAction(qa)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.qaItemLeft}>
+                          <Ionicons name="clipboard-outline" size={20} color="#E05D38" style={{ marginTop: 2 }} />
+                        </View>
+                        <View style={styles.qaItemCenter}>
+                          <Text style={styles.qaItemTitle}>{qa.title}</Text>
+                          <Text style={styles.qaItemSubtitle}>
+                            {qa.statuses.join(' → ')}
+                          </Text>
+                        </View>
+                        <View style={styles.qaItemRight}>
+                          {alreadyAdded ? (
+                            <View style={styles.qaAddedBadge}>
+                              <Ionicons name="checkmark" size={13} color="#059669" />
+                              <Text style={styles.qaAddedText}>Added</Text>
+                            </View>
+                          ) : (
+                            <Ionicons name="add-circle-outline" size={20} color="#EA580C" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Bottom: Create custom activity dropdown */}
+                <View style={styles.qaCustomSection}>
+                  <TouchableOpacity
+                    style={styles.qaCustomToggleBtn}
+                    onPress={() => setIsCustomActivityExpanded(!isCustomActivityExpanded)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.qaCustomToggleText}>Create custom activity</Text>
+                    <Ionicons
+                      name={isCustomActivityExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color="#4B5563"
+                    />
+                  </TouchableOpacity>
+
+                  {isCustomActivityExpanded && (
+                    <View style={styles.qaCustomForm}>
+                      <TextInput
+                        style={styles.qaCustomInput}
+                        placeholder="e.g. Stage LED Calibration, Drone Clearance"
+                        placeholderTextColor="#9CA3AF"
+                        value={customActivityTitle}
+                        onChangeText={setCustomActivityTitle}
+                        autoFocus
+                      />
+                      <TouchableOpacity
+                        style={styles.qaCustomSubmitBtn}
+                        onPress={handleAddCustomActivity}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.qaCustomSubmitText}>Add Custom Activity</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+
     </ScreenWrapper>
   );
 }
@@ -2709,5 +3058,299 @@ const styles = StyleSheet.create({
   crewSelectRole: {
     fontSize: 11,
     color: '#64748B',
+  },
+  // Activities Card Styles (Reference Match)
+  actHeaderBar: {
+    backgroundColor: '#2FA493',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  actHeaderText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  actHeaderAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+  },
+  actHeaderAddBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  actCardBody: {
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderTopWidth: 0,
+  },
+  actEmptyContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  actEmptyText: {
+    color: '#6B7280',
+    fontSize: 14.5,
+    marginBottom: 16,
+    fontWeight: '400',
+  },
+  actAddDashedBtn: {
+    width: '100%',
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAF7F2',
+    borderWidth: 1.5,
+    borderColor: '#C4B5A5',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+  },
+  actAddDashedText: {
+    color: '#1F2937',
+    fontSize: 14.5,
+    fontWeight: '500',
+  },
+  actList: {
+    width: '100%',
+  },
+  actItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  actItemRow1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  actClipboardIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  actItemTitle: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  actStatusActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  actStatusBadgeDone: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  actStatusBadgePending: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  actStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  actStatusBadgeTextDone: {
+    color: '#065F46',
+  },
+  actStatusBadgeTextPending: {
+    color: '#92400E',
+  },
+  actStepperScroll: {
+    marginTop: 8,
+  },
+  actStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  actStepWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actStepPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  actStepPillActive: {
+    backgroundColor: '#2FA493',
+  },
+  actStepPillPast: {
+    backgroundColor: '#E6FFFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+  },
+  actStepPillFuture: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  actStepText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  actStepTextActive: {
+    color: '#FFFFFF',
+  },
+  actStepTextPast: {
+    color: '#0D9488',
+  },
+  actStepTextFuture: {
+    color: '#6B7280',
+  },
+  // Quick Actions Modal Styles
+  qaModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  qaHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  qaHeaderTitle: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: '#4B3621',
+    letterSpacing: 0.5,
+  },
+  qaList: {
+    paddingVertical: 4,
+  },
+  qaItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F9FAFB',
+  },
+  qaItemLeft: {
+    marginRight: 10,
+    marginTop: 1,
+  },
+  qaItemCenter: {
+    flex: 1,
+  },
+  qaItemTitle: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  qaItemSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  qaItemRight: {
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qaAddedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  qaAddedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 2,
+  },
+  qaCustomSection: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingBottom: 6,
+  },
+  qaCustomToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  qaCustomToggleText: {
+    fontSize: 13.5,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  qaCustomForm: {
+    marginTop: 8,
+    gap: 8,
+  },
+  qaCustomInput: {
+    backgroundColor: '#F3F4F6',
+    color: '#1F2937',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  qaCustomSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2FA493',
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  qaCustomSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '600',
   },
 });

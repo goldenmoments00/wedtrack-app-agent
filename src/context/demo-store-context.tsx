@@ -75,6 +75,8 @@ interface DemoStoreContextType {
   releaseTask: (taskId: string) => void;
   updateTaskStatus: (taskId: string, status: EditingTaskStatus) => void;
   updateActivityStatus: (activityId: string, newIndex: number) => void;
+  addOrderActivity: (input: Omit<OrderActivity, 'id' | 'createdAt'>) => OrderActivity;
+  deleteOrderActivity: (activityId: string) => void;
   addEditingTask: (input: Omit<EditingTask, 'id' | 'createdAt' | 'updatedAt'>) => EditingTask;
   assignEditorToTask: (taskId: string, editorId: string, editorName: string) => void;
   deleteEditingTask: (taskId: string) => void;
@@ -775,6 +777,24 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // Add Order Activity (ACT-02)
+  const addOrderActivity = (input: Omit<OrderActivity, 'id' | 'createdAt'>): OrderActivity => {
+    const newActivity: OrderActivity = {
+      ...input,
+      id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setActivities(prev => [newActivity, ...prev]);
+    logActivity('CREATE_ACTIVITY', 'TASK', newActivity.id, newActivity.title, `Added activity "${newActivity.title}" for ${input.tenantOrderNumber}`);
+    return newActivity;
+  };
+
+  // Delete Order Activity
+  const deleteOrderActivity = (activityId: string) => {
+    setActivities(prev => prev.filter(a => a.id !== activityId));
+    logActivity('DELETE_ACTIVITY', 'TASK', activityId, activityId, `Deleted activity ${activityId}`);
+  };
+
   // Review Version Upload (REV-02)
   const uploadReviewVersion = (reviewItemId: string, versionData: Partial<ReviewVersion>) => {
     setReviews(prev =>
@@ -1221,6 +1241,8 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         releaseTask,
         updateTaskStatus,
         updateActivityStatus,
+        addOrderActivity,
+        deleteOrderActivity,
         addEditingTask,
         assignEditorToTask,
         deleteEditingTask,

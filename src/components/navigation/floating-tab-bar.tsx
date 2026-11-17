@@ -41,6 +41,8 @@ export function FloatingTabBar({
   const workspace = session?.activeWorkspace || 'SHOOTS';
   const isAgent = workspace === 'SHOOTS';
   const isEditor = workspace === 'EDITING';
+  const isOwnerAdmin = session?.roles.includes('OWNER') || session?.roles.includes('ADMIN');
+  const isManager = session?.roles.includes('MANAGER');
 
   // Floating Dock Layout Measurements
   const dockHeight = 60;
@@ -435,6 +437,46 @@ export function FloatingTabBar({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[styles.personaCard, isOwnerAdmin && styles.personaCardActive]}
+                onPress={async () => {
+                  if (switchDemoPersona) {
+                    await switchDemoPersona('owner-admin');
+                  } else {
+                    await switchWorkspace('OPERATIONS');
+                  }
+                  setHubVisible(false);
+                  showToast('Switched to Owner/Admin (Aarav Mehta)');
+                }}
+              >
+                <Text style={styles.personaEmoji}>👑</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personaName}>Aarav Mehta (Owner / Admin)</Text>
+                  <Text style={styles.personaRole}>Full Studio Operations, Rates & Financials</Text>
+                </View>
+                {isOwnerAdmin && <Ionicons name="checkmark-circle" size={22} color={vibrantOrange} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.personaCard, isManager && styles.personaCardActive]}
+                onPress={async () => {
+                  if (switchDemoPersona) {
+                    await switchDemoPersona('manager-default');
+                  } else {
+                    await switchWorkspace('OPERATIONS');
+                  }
+                  setHubVisible(false);
+                  showToast('Switched to Manager (Priya Sharma)');
+                }}
+              >
+                <Text style={styles.personaEmoji}>📋</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.personaName}>Priya Sharma (Manager)</Text>
+                  <Text style={styles.personaRole}>Operations, Crew Allocation & Production</Text>
+                </View>
+                {isManager && <Ionicons name="checkmark-circle" size={22} color={vibrantOrange} />}
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.personaCard, isAgent && styles.personaCardActive]}
                 onPress={async () => {

@@ -83,30 +83,106 @@ export const INITIAL_EVENT_TYPES: StudioEventType[] = [
 
 export const INITIAL_ACTIVITY_TEMPLATES: ActivityTemplateItem[] = [
   {
-    id: 'tmpl-01',
-    title: 'Client Photo Shortlisting Gallery',
-    description: 'Send web shortlisting link to client and follow up for selection.',
-    defaultAssigneeRole: 'MANAGER',
-    defaultStatuses: ['Not Started', 'Link Prepared', 'Sent to Client', 'Selection Received'],
-    isArchived: false,
-  },
-  {
-    id: 'tmpl-02',
-    title: 'Album Physical Proof Approval',
-    description: 'Courier swatch sample and obtain physical proof sign-off.',
+    id: 'tmpl-qa-01',
+    title: 'Backup to Drive',
+    description: 'Cloud and physical disk redundancy of RAW shoot footage.',
     defaultAssigneeRole: 'EDITOR',
-    defaultStatuses: ['Pending', 'Dispatched', 'Delivered', 'Signed Off'],
+    defaultStatuses: ['Pending', 'In Progress', 'Done'],
     isArchived: false,
   },
   {
-    id: 'tmpl-03',
-    title: 'Venue Flying Clearance & Drone Notice',
-    description: 'Submit pilot license and drone serial numbers to local security.',
+    id: 'tmpl-qa-02',
+    title: 'Sending Photo for Shortlisting',
+    description: 'Watermarked web gallery link dispatched to client.',
+    defaultAssigneeRole: 'EDITOR',
+    defaultStatuses: ['Pending', 'Sent', 'Received'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-03',
+    title: 'comossion paid 24K',
+    description: 'Lead commission payout verification and settlement.',
     defaultAssigneeRole: 'MANAGER',
-    defaultStatuses: ['Pending', 'Applied', 'Approved'],
+    defaultStatuses: ['Pending', 'Done'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-04',
+    title: 'Album Layout Approval',
+    description: 'Digital flipbook layout shared for couple corrections.',
+    defaultAssigneeRole: 'EDITOR',
+    defaultStatuses: ['Pending', 'Sent', 'Revision Requested', 'Approved'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-05',
+    title: 'Final Edit Review',
+    description: 'Full teaser, highlight, and master cut client review.',
+    defaultAssigneeRole: 'EDITOR',
+    defaultStatuses: ['Pending', 'Shared', 'Changes Requested', 'Approved'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-06',
+    title: 'Pendrive / HDD Delivery',
+    description: 'Branded crystal drive or high-speed drive dispatched.',
+    defaultAssigneeRole: 'MANAGER',
+    defaultStatuses: ['Pending', 'Packed', 'Dispatched', 'Delivered'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-07',
+    title: 'Online Gallery Link Shared',
+    description: 'Full resolution final download link delivered to client.',
+    defaultAssigneeRole: 'EDITOR',
+    defaultStatuses: ['Pending', 'Uploaded', 'Shared'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-08',
+    title: 'Album Printing',
+    description: 'NTR glossy printing press processing and QC check.',
+    defaultAssigneeRole: 'MANAGER',
+    defaultStatuses: ['Pending', 'Sent to Press', 'Received', 'Delivered'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-09',
+    title: 'Raw Data Collection from Team',
+    description: 'Physical SD card ingest and footage consolidation.',
+    defaultAssigneeRole: 'MANAGER',
+    defaultStatuses: ['Pending', 'Partially Received', 'Received'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-10',
+    title: 'Contract Signed',
+    description: 'Client agreement and terms signed off on portal.',
+    defaultAssigneeRole: 'MANAGER',
+    defaultStatuses: ['Pending', 'Sent', 'Signed'],
+    isArchived: false,
+  },
+  {
+    id: 'tmpl-qa-11',
+    title: 'Final Payment Reminder',
+    description: 'Pre-delivery balance payment notice sent to client.',
+    defaultAssigneeRole: 'MANAGER',
+    defaultStatuses: ['Pending', 'Reminded', 'Paid'],
     isArchived: false,
   },
 ];
+
+export interface QuickActionItem {
+  id: string;
+  title: string;
+  statuses: string[];
+}
+
+export const QUICK_ACTION_ACTIVITIES: QuickActionItem[] = INITIAL_ACTIVITY_TEMPLATES.map(t => ({
+  id: t.id,
+  title: t.title,
+  statuses: t.defaultStatuses,
+}));
 
 export const INITIAL_CREDITS_STATE: CreditsState = {
   balance: 42,
