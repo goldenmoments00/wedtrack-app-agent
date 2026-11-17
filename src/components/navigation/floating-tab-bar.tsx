@@ -34,7 +34,7 @@ export function FloatingTabBar({
   emitter,
 }: FloatingTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { session, switchWorkspace } = useAuth();
+  const { session, switchWorkspace, switchDemoPersona } = useAuth();
   const router = useRouter();
 
   const workspace = session?.activeWorkspace || 'SHOOTS';
@@ -116,10 +116,18 @@ export function FloatingTabBar({
     setActiveSlot(2);
 
     if (isAgent) {
-      await switchWorkspace('EDITING');
+      if (switchDemoPersona) {
+        await switchDemoPersona('editor-default');
+      } else {
+        await switchWorkspace('EDITING');
+      }
       showToast('Switched to Editor Mode (Vikram Das)');
     } else {
-      await switchWorkspace('SHOOTS');
+      if (switchDemoPersona) {
+        await switchDemoPersona('agent-standard');
+      } else {
+        await switchWorkspace('SHOOTS');
+      }
       showToast('Switched to Agent Mode (Karan Malhotra)');
     }
   };
@@ -353,7 +361,11 @@ export function FloatingTabBar({
               <TouchableOpacity
                 style={[styles.personaCard, isAgent && styles.personaCardActive]}
                 onPress={async () => {
-                  await switchWorkspace('SHOOTS');
+                  if (switchDemoPersona) {
+                    await switchDemoPersona('agent-standard');
+                  } else {
+                    await switchWorkspace('SHOOTS');
+                  }
                   setHubVisible(false);
                   showToast('Switched to Agent Mode (Karan Malhotra)');
                 }}
@@ -369,7 +381,11 @@ export function FloatingTabBar({
               <TouchableOpacity
                 style={[styles.personaCard, isEditor && styles.personaCardActive]}
                 onPress={async () => {
-                  await switchWorkspace('EDITING');
+                  if (switchDemoPersona) {
+                    await switchDemoPersona('editor-default');
+                  } else {
+                    await switchWorkspace('EDITING');
+                  }
                   setHubVisible(false);
                   showToast('Switched to Editor Mode (Vikram Das)');
                 }}

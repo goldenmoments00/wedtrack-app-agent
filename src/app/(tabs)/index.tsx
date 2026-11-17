@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
   TextInput,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -23,6 +24,8 @@ import { StatusBadge, mapOrderStatusToVariant, mapReviewStatusToVariant } from '
 import { MoneyView, formatCurrency } from '@/components/common/money-view';
 import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
+import { AchievementBadge } from '@/components/achievements/achievement-badge';
+import { AchievementsModal } from '@/components/achievements/achievements-modal';
 
 export default function TabIndexScreen() {
   const insets = useSafeAreaInsets();
@@ -37,6 +40,7 @@ export default function TabIndexScreen() {
   const { colors, typography, spacing, radii, isDark } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [heroAchievementsVisible, setHeroAchievementsVisible] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('NOV 26');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'COMPLETED'>('ALL');
   const [agentFilter, setAgentFilter] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'COMPLETED'>('ALL');
@@ -49,6 +53,33 @@ export default function TabIndexScreen() {
     DEC: false,
   });
   const [showFinancials, setShowFinancials] = useState(false);
+  const [activeStatToast, setActiveStatToast] = useState<{
+    id: string;
+    icon: string;
+    label: string;
+    value: string;
+    color: string;
+  } | null>(null);
+  const statToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statToastTimeoutRef.current) {
+        clearTimeout(statToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleStatPress = (stat: { id: string; icon: string; label: string; value: string; color: string }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (statToastTimeoutRef.current) {
+      clearTimeout(statToastTimeoutRef.current);
+    }
+    setActiveStatToast(stat);
+    statToastTimeoutRef.current = setTimeout(() => {
+      setActiveStatToast(null);
+    }, 1800);
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -56,6 +87,7 @@ export default function TabIndexScreen() {
   };
 
   const workspace = session?.activeWorkspace || 'OPERATIONS';
+  const agentAvatar = session?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=faces';
 
   // Time helper (shared across Operations and Agent workspaces)
   const formatEventTime = (isoString: string) => {
@@ -701,8 +733,10 @@ export default function TabIndexScreen() {
       const monthShort = monthsShort[d.getMonth()] || 'NOV';
 
       return (
-        <View
+        <TouchableOpacity
           key={evt.id}
+          activeOpacity={0.88}
+          onPress={() => router.push(`/events/${evt.id}`)}
           style={[
             styles.freshWorkCard,
             {
@@ -713,9 +747,9 @@ export default function TabIndexScreen() {
         >
           {/* Header Row: Date badge, Ceremony name, Status pill */}
           <View style={styles.freshWorkCardHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
               <View style={styles.freshWorkDateBadge}>
-                <Ionicons name="calendar-outline" size={13} color="#FF5500" />
+                <Ionicons name="calendar-outline" size={11} color="#FF5500" />
                 <Text style={styles.freshWorkDateBadgeText}>
                   {dayNum} {monthShort}
                 </Text>
@@ -754,65 +788,29 @@ export default function TabIndexScreen() {
             </View>
           </View>
 
-          {/* Time and Venue Rows */}
-          <View style={{ marginTop: 4, gap: 4 }}>
-            <View style={styles.freshWorkMetaRow}>
-              <Ionicons name="time-outline" size={14} color="#D97706" />
+          {/* Time and Venue in single slim row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="time-outline" size={12} color="#D97706" />
               <Text style={[styles.freshWorkMetaText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
                 {formatEventTime(evt.startTime)}
               </Text>
             </View>
 
             {evt.venueName && (
-              <View style={styles.freshWorkMetaRow}>
-                <Ionicons name="location-outline" size={14} color="#6B7280" />
-                <Text
-                  style={[styles.freshWorkMetaText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                  numberOfLines={1}
-                >
-                  {evt.venueName} · {evt.venueAddress}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Crew Chips */}
-          <View style={styles.freshWorkCrewRow}>
-            <Text style={{ fontSize: 11, color: isDark ? '#6B7280' : '#9CA3AF', marginRight: 2 }}>
-              Crew:
-            </Text>
-            {evt.assignments.map((asg) => {
-              const isSelf = asg.agentId === agentId;
-              return (
-                <View
-                  key={asg.id}
-                  style={[
-                    styles.freshWorkCrewChip,
-                    {
-                      backgroundColor: isSelf
-                        ? isDark ? 'rgba(255, 85, 0, 0.16)' : '#FFF0E6'
-                        : isDark ? '#1F2633' : '#F3F4F6',
-                      borderColor: isSelf ? '#FF5500' : 'transparent',
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.crewDot,
-                      { backgroundColor: isSelf ? '#FF5500' : '#6B7280' },
-                    ]}
-                  />
+              <>
+                <Text style={{ color: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)', fontSize: 10 }}>•</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                  <Ionicons name="location-outline" size={12} color="#6B7280" />
                   <Text
-                    style={[
-                      styles.freshWorkCrewChipText,
-                      { color: isSelf ? '#FF5500' : isDark ? '#D1D5DB' : '#374151' },
-                    ]}
+                    style={[styles.freshWorkMetaText, { color: isDark ? '#9CA3AF' : '#6B7280', flex: 1 }]}
+                    numberOfLines={1}
                   >
-                    {isSelf ? `You (${asg.role === 'PHOTOGRAPHER' ? 'PHOTO' : 'VIDEO'})` : `${asg.agentName} (${asg.role === 'PHOTOGRAPHER' ? 'PHOTO' : 'VIDEO'})`}
+                    {evt.venueName}{evt.venueAddress ? ` · ${evt.venueAddress}` : ''}
                   </Text>
                 </View>
-              );
-            })}
+              </>
+            )}
           </View>
 
           {/* Card Footer: Agreed Pay + Circular Action Buttons */}
@@ -830,14 +828,17 @@ export default function TabIndexScreen() {
                   style={[
                     styles.freshWorkCircularBtn,
                     {
-                      backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#F8F9FA',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
+                      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#ECFDF5',
+                      borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#A7F3D0',
                     },
                   ]}
-                  onPress={() => handleCall(evt.contactPhone)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleCall(evt.contactPhone);
+                  }}
                   accessibilityLabel="Call Client"
                 >
-                  <Ionicons name="call-outline" size={16} color="#FF5500" />
+                  <Ionicons name="call" size={12} color="#22C55E" />
                 </TouchableOpacity>
               )}
 
@@ -846,27 +847,29 @@ export default function TabIndexScreen() {
                   style={[
                     styles.freshWorkCircularBtn,
                     {
-                      backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#F8F9FA',
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#E5E7EB',
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF',
+                      borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#BFDBFE',
                     },
                   ]}
-                  onPress={() => handleMap(evt.venueMapUrl)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleMap(evt.venueMapUrl);
+                  }}
                   accessibilityLabel="Directions"
                 >
-                  <Ionicons name="map-outline" size={16} color="#3B82F6" />
+                  <Ionicons name="map-outline" size={12} color="#3B82F6" />
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
+              <View
                 style={styles.freshWorkCircularPrimaryBtn}
-                onPress={() => router.push(`/events/${evt.id}`)}
                 accessibilityLabel="Open Event Details"
               >
-                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-              </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+              </View>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       );
     };
 
@@ -894,19 +897,53 @@ export default function TabIndexScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* 1. Fresh Top Hero Card (Inspired by Reference Images) */}
-          <LinearGradient
-            colors={['#FF5500', '#EA580C']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.freshHeroCard}
-          >
+          {/* 1. Fresh Top Hero Card (Frosted Glass with DP Ambient Blur & Color Cast) */}
+          <View style={styles.freshHeroCard}>
+            {/* Ambient blurred backdrop directly from Agent's DP */}
+            <Image
+              source={{ uri: agentAvatar }}
+              style={StyleSheet.absoluteFill}
+              blurRadius={36}
+              resizeMode="cover"
+            />
+
+            {/* Frosted Glass Overlay with dynamic gradient and specular highlights */}
+            <LinearGradient
+              colors={['rgba(255, 85, 0, 0.45)', 'rgba(38, 20, 26, 0.76)', 'rgba(18, 12, 18, 0.90)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+
             {/* Top row: Avatar, Name, Role & Month Earnings */}
             <View style={styles.freshHeroTopRow}>
               <View style={styles.freshHeroProfileCol}>
-                <View style={styles.freshHeroAvatarCircle}>
-                  <Ionicons name="camera" size={24} color="#FF5500" />
-                </View>
+                <TouchableOpacity
+                  style={{ width: 48, height: 48, position: 'relative' }}
+                  onPress={() => setHeroAchievementsVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityLabel="View your studio achievements"
+                >
+                  <View style={styles.freshHeroAvatarCircle}>
+                    <Image
+                      source={{ uri: agentAvatar }}
+                      style={styles.freshHeroAvatarImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View style={styles.freshHeroBadgePin}>
+                    <AchievementBadge
+                      achievement={{
+                        shape: 'PENTAGON',
+                        iconName: 'sparkles',
+                        badgeText: 'L3',
+                        gradient: ['#818CF8', '#4F46E5'],
+                        accentColor: '#C7D2FE',
+                      }}
+                      size="mini"
+                    />
+                  </View>
+                </TouchableOpacity>
                 <View>
                   <Text style={styles.freshHeroName}>{session?.name || 'Karan Malhotra'}</Text>
                   <Text style={styles.freshHeroRole}>Lead Photographer • Crew</Text>
@@ -959,96 +996,96 @@ export default function TabIndexScreen() {
                 </View>
               </TouchableOpacity>
             )}
-          </LinearGradient>
+          </View>
 
-          {/* 2. 2x2 Metric Stat Capsules */}
-          <View style={styles.freshStatsGrid}>
-            <View
-              style={[
-                styles.freshStatCard,
-                {
-                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
-                },
-              ]}
-            >
-              <View>
-                <Text style={[styles.freshStatLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                  UPCOMING
-                </Text>
-                <Text style={[styles.freshStatValue, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  {upcomingEvents.length || 7}
+          {/* 2. Slim Icon-Only Stats Bar with 1-Second Tap Reveal */}
+          <View style={styles.slimStatsWrapper}>
+            {/* 1-Second Data Reveal Toast */}
+            {activeStatToast && (
+              <View
+                style={[
+                  styles.statRevealToast,
+                  {
+                    backgroundColor: isDark ? 'rgba(28, 18, 22, 0.96)' : '#FFFFFF',
+                    borderColor: activeStatToast.color,
+                  },
+                ]}
+              >
+                <Ionicons name={activeStatToast.icon as any} size={15} color={activeStatToast.color} />
+                <Text style={[styles.statRevealText, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                  <Text style={{ color: activeStatToast.color, fontWeight: '800' }}>{activeStatToast.label}: </Text>
+                  {activeStatToast.value}
                 </Text>
               </View>
-              <View style={[styles.freshStatIconBox, { backgroundColor: isDark ? 'rgba(255, 85, 0, 0.15)' : '#FFF0E6' }]}>
-                <Ionicons name="calendar-outline" size={18} color="#FF5500" />
-              </View>
-            </View>
+            )}
 
-            <View
-              style={[
-                styles.freshStatCard,
+            {/* 4 Clean Icon Capsules */}
+            <View style={styles.slimStatsIconsRow}>
+              {[
                 {
-                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
+                  id: 'upcoming',
+                  icon: 'calendar-outline',
+                  label: 'UPCOMING',
+                  value: `${upcomingEvents.length || 7} Shoots`,
+                  color: '#FF5500',
+                  bgColor: isDark ? 'rgba(255, 85, 0, 0.16)' : '#FFF0E6',
                 },
-              ]}
-            >
-              <View>
-                <Text style={[styles.freshStatLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                  THIS MONTH
-                </Text>
-                <Text style={[styles.freshStatValue, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  ₹{(novPay / 1000).toFixed(0)}k
-                </Text>
-              </View>
-              <View style={[styles.freshStatIconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
-                <Ionicons name="wallet-outline" size={18} color="#10B981" />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
+                  id: 'earnings',
+                  icon: 'wallet-outline',
+                  label: 'THIS MONTH',
+                  value: `₹${(novPay / 1000).toFixed(0)}k (${novPay.toLocaleString('en-IN')})`,
+                  color: '#10B981',
+                  bgColor: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ECFDF5',
                 },
-              ]}
-            >
-              <View>
-                <Text style={[styles.freshStatLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                  COMPLETED
-                </Text>
-                <Text style={[styles.freshStatValue, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  {completedEvents.length || 1}
-                </Text>
-              </View>
-              <View style={[styles.freshStatIconBox, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF' }]}>
-                <Ionicons name="checkmark-circle-outline" size={19} color="#3B82F6" />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.freshStatCard,
                 {
-                  backgroundColor: isDark ? 'rgba(34, 22, 26, 0.82)' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.09)' : '#F0F0F2',
+                  id: 'completed',
+                  icon: 'checkmark-circle-outline',
+                  label: 'COMPLETED',
+                  value: `${completedEvents.length || 1} Shoot`,
+                  color: '#3B82F6',
+                  bgColor: isDark ? 'rgba(59, 130, 246, 0.16)' : '#EFF6FF',
                 },
-              ]}
-            >
-              <View>
-                <Text style={[styles.freshStatLabel, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                  TOTAL SHOOTS
-                </Text>
-                <Text style={[styles.freshStatValue, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                  {myEvents.length || 8}
-                </Text>
-              </View>
-              <View style={[styles.freshStatIconBox, { backgroundColor: isDark ? 'rgba(255, 85, 0, 0.15)' : '#FFF0E6' }]}>
-                <Ionicons name="briefcase-outline" size={18} color="#FF5500" />
-              </View>
+                {
+                  id: 'total',
+                  icon: 'briefcase-outline',
+                  label: 'TOTAL SHOOTS',
+                  value: `${myEvents.length || 8} Shoots`,
+                  color: '#F59E0B',
+                  bgColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FFFBEB',
+                },
+              ].map(item => {
+                const isActive = activeStatToast?.id === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.slimStatIconBtn,
+                      {
+                        backgroundColor: isActive
+                          ? item.bgColor
+                          : isDark
+                          ? 'rgba(34, 22, 28, 0.88)'
+                          : '#FFFFFF',
+                        borderColor: isActive
+                          ? item.color
+                          : isDark
+                          ? 'rgba(255, 255, 255, 0.09)'
+                          : '#E5E7EB',
+                      },
+                    ]}
+                    onPress={() => handleStatPress(item)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={`${item.label} stats`}
+                  >
+                    <Ionicons
+                      name={item.icon as any}
+                      size={20}
+                      color={item.color}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -1226,6 +1263,16 @@ export default function TabIndexScreen() {
             )}
           </View>
         </ScrollView>
+
+        {/* Modal: View & Award Agent Achievements */}
+        <AchievementsModal
+          visible={heroAchievementsVisible}
+          onClose={() => setHeroAchievementsVisible(false)}
+          memberId={session?.id || 'usr-agt-01'}
+          memberName={session?.name || 'Karan Malhotra'}
+          memberAvatar="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
+          memberRole="Lead Photographer • Crew"
+        />
       </LinearGradient>
     );
   }
@@ -2364,11 +2411,15 @@ const styles = StyleSheet.create({
   freshHeroCard: {
     borderRadius: 26,
     padding: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     shadowColor: '#FF5500',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 8,
   },
   freshHeroTopRow: {
     flexDirection: 'row',
@@ -2384,16 +2435,30 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: '#1E1E24',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
+  },
+  freshHeroAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  freshHeroBadgePin: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 5,
   },
   freshHeroName: {
     color: '#FFFFFF',
@@ -2497,43 +2562,53 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  /* 2x2 Fresh Stat Capsules */
-  freshStatsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  /* Slim Icon-Only Stats Styles with Tap-to-Reveal */
+  slimStatsWrapper: {
     marginTop: 14,
+    marginBottom: 4,
+    position: 'relative',
+    alignItems: 'center',
   },
-  freshStatCard: {
-    width: '48.5%',
-    borderRadius: 20,
-    paddingVertical: 14,
+  statRevealToast: {
+    position: 'absolute',
+    top: -42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    zIndex: 99,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  statRevealText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  slimStatsIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    width: '100%',
+    gap: 10,
   },
-  freshStatLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  freshStatValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  freshStatIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  slimStatIconBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   /* Section Header */
@@ -2664,43 +2739,44 @@ const styles = StyleSheet.create({
 
   /* Fresh Assigned Work Card */
   freshWorkCard: {
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
   freshWorkCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   freshWorkDateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: 'rgba(255, 85, 0, 0.12)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 7,
   },
   freshWorkDateBadgeText: {
     color: '#FF5500',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   freshWorkTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   freshWorkOrder: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#FF5500',
     marginTop: 1,
@@ -2708,41 +2784,41 @@ const styles = StyleSheet.create({
   freshWorkMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   freshWorkMetaText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   freshWorkCrewRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 8,
+    gap: 5,
+    marginTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderColor: 'rgba(150, 150, 150, 0.1)',
   },
   freshWorkCrewChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 7,
     borderWidth: 1,
   },
   freshWorkCrewChipText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   freshWorkFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 6,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderColor: 'rgba(150, 150, 150, 0.1)',
   },
@@ -2750,46 +2826,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   freshWorkPayLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     color: '#9CA3AF',
   },
   freshWorkPayAmount: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
-    marginTop: 1,
+    marginTop: 0.5,
   },
   freshWorkActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   freshWorkCircularBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
   freshWorkCircularPrimaryBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF5500',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
   },
 
 });

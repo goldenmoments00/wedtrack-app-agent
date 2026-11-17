@@ -18,6 +18,8 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
+import { AchievementBadge } from '@/components/achievements/achievement-badge';
+import { AchievementsModal } from '@/components/achievements/achievements-modal';
 
 export interface AgentProfileViewProps {
   onBack?: () => void;
@@ -27,8 +29,10 @@ export interface AgentProfileViewProps {
 export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewProps) {
   const insets = useSafeAreaInsets();
   const { session, updateProfile, signOut, mode } = useAuth();
-  const { events } = useDemoStore();
+  const { events, team } = useDemoStore();
   const { isDark } = useTheme();
+
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
 
   // Exact Colors Extracted from User References:
   // Night Mode reference: media_1794850244491_0e838404.png
@@ -90,6 +94,10 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
   // Count agent events
   const agentId = session?.id || 'usr-agt-01';
   const myShootsCount = events.filter(e => e.assignments.some(a => a.agentId === agentId)).length;
+
+  const currentMember = team.find(m => m.id === agentId || m.name === name);
+  const myAchievements = currentMember?.achievements || [];
+  const topAchievement = myAchievements[0];
 
   const handleToggleSound = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -192,15 +200,27 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         >
           {/* Top Row: Avatar & Name */}
           <View style={styles.heroTopRow}>
-            {/* Avatar Photo with Subtle Border */}
-            <View style={[styles.avatarBorder, { borderColor: themeColors.border }]}>
-              <Image
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-                }}
-                style={styles.avatarImg}
-              />
-            </View>
+            {/* Avatar Photo with Subtle Border & Achievement Pin near DP Bubble */}
+            <TouchableOpacity
+              style={{ width: 72, height: 72, position: 'relative' }}
+              onPress={() => setAchievementsModalVisible(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="View earned achievements"
+            >
+              <View style={[styles.avatarBorder, { borderColor: themeColors.border }]}>
+                <Image
+                  source={{
+                    uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+                  }}
+                  style={styles.avatarImg}
+                />
+              </View>
+              {topAchievement && (
+                <View style={styles.dpAchievementPin}>
+                  <AchievementBadge achievement={topAchievement} size="mini" />
+                </View>
+              )}
+            </TouchableOpacity>
 
             <View style={styles.heroInfoCol}>
               <Text style={[styles.heroNameText, { color: themeColors.textPrimary }]} numberOfLines={1}>
@@ -344,6 +364,49 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
           <Text style={[styles.statsToggleHint, { color: themeColors.textMuted }]}>
             Tap pills to switch between physical & crew stats
           </Text>
+
+          {/* Honors & Achievements Showcase */}
+          {myAchievements.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.achievementsCard,
+                {
+                  backgroundColor: themeColors.bgSubtle,
+                  borderColor: themeColors.border,
+                },
+              ]}
+              onPress={() => setAchievementsModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.achievementsCardHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="ribbon" size={16} color={themeColors.accent} />
+                  <Text style={[styles.achievementsCardTitle, { color: themeColors.textPrimary }]}>
+                    Studio Honors & Credentials
+                  </Text>
+                </View>
+                <View style={[styles.badgeCountPill, { backgroundColor: themeColors.badgeBg }]}>
+                  <Text style={[styles.badgeCountText, { color: themeColors.badgeText }]}>
+                    {myAchievements.length} Badges
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.achievementsRow}>
+                {myAchievements.slice(0, 3).map(ach => (
+                  <View key={ach.id} style={styles.achievementMiniItem}>
+                    <AchievementBadge achievement={ach} size="sm" />
+                    <Text
+                      style={[styles.achievementMiniTitle, { color: themeColors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {ach.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Section 1: Account settings (using sampled colors) */}
@@ -741,6 +804,16 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
           </Pressable>
         </Modal>
       )}
+
+      {/* Modal: View & Award Agent Achievements */}
+      <AchievementsModal
+        visible={achievementsModalVisible}
+        onClose={() => setAchievementsModalVisible(false)}
+        memberId={agentId}
+        memberName={name}
+        memberAvatar="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
+        memberRole={session?.agentProfession === 'BOTH' ? 'Lead Photographer & Cinematographer' : 'Lead Photographer'}
+      />
     </View>
   );
 }
@@ -792,6 +865,57 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     borderWidth: 2,
     overflow: 'hidden',
+  },
+  dpAchievementPin: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  achievementsCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 14,
+  },
+  achievementsCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  achievementsCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  badgeCountPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeCountText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  achievementsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  achievementMiniItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  achievementMiniTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
   },
   avatarImg: {
     width: '100%',

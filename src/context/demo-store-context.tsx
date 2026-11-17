@@ -5,6 +5,7 @@ import { EditingTask, OrderActivity, EditingTaskStatus } from '@/types/editing';
 import { ReviewItem, ReviewCommentStatus, ReviewVersion } from '@/types/review';
 import { PaymentRecord, StudioPayrollSummary, RecordClientReceiptInput, RecordStaffPayoutInput } from '@/types/money';
 import { TeamMember, CreateTeamMemberInput, UpdateCapabilityInput } from '@/types/team';
+import { AgentAchievement } from '@/types/achievements';
 import {
   StudioPackage,
   PackageExtractionDraft,
@@ -86,6 +87,8 @@ interface DemoStoreContextType {
   createTeamMember: (input: CreateTeamMemberInput) => TeamMember;
   toggleMemberActive: (memberId: string) => void;
   updateCapability: (input: UpdateCapabilityInput) => { success: boolean; warning?: string };
+  awardAchievement: (memberId: string, achievement: AgentAchievement) => void;
+  revokeAchievement: (memberId: string, achievementId: string) => void;
 
   // Client Access Actions
   resetClientPin: (orderId: string) => string; // Returns one-time PIN
@@ -808,6 +811,36 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
     return { success: true, warning };
   };
 
+  // Award Achievement to Staff Member (Admin Action)
+  const awardAchievement = (memberId: string, achievement: AgentAchievement) => {
+    setTeam(prev =>
+      prev.map(m => {
+        if (m.id !== memberId) return m;
+        const existing = m.achievements || [];
+        const filtered = existing.filter(a => a.code !== achievement.code);
+        return {
+          ...m,
+          achievements: [achievement, ...filtered],
+        };
+      })
+    );
+    logActivity('AWARD_ACHIEVEMENT', 'TEAM', memberId, achievement.title, `Awarded ${achievement.title} to staff member.`);
+  };
+
+  // Revoke Achievement from Staff Member (Admin Action)
+  const revokeAchievement = (memberId: string, achievementId: string) => {
+    setTeam(prev =>
+      prev.map(m => {
+        if (m.id !== memberId) return m;
+        return {
+          ...m,
+          achievements: (m.achievements || []).filter(a => a.id !== achievementId),
+        };
+      })
+    );
+    logActivity('REVOKE_ACHIEVEMENT', 'TEAM', memberId, achievementId, `Revoked achievement from staff member.`);
+  };
+
   // Reset Client PIN (CLIENT-04)
   const resetClientPin = (orderId: string): string => {
     const newPin = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit PIN
@@ -943,6 +976,8 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         createTeamMember,
         toggleMemberActive,
         updateCapability,
+        awardAchievement,
+        revokeAchievement,
 
         resetClientPin,
 

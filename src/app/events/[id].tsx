@@ -1,27 +1,28 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Linking,
-  Modal,
-  Alert,
-  Image,
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { AchievementBadge } from '@/components/achievements/achievement-badge';
+import { AchievementsModal } from '@/components/achievements/achievements-modal';
+import { Button } from '@/components/common/button';
+import { ScreenWrapper } from '@/components/common/screen-wrapper';
+import { StateView } from '@/components/common/state-view';
+import { StatusBadge } from '@/components/common/status-badge';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
-import { ScreenWrapper } from '@/components/common/screen-wrapper';
-import { StatusBadge } from '@/components/common/status-badge';
-import { formatCurrency } from '@/components/common/money-view';
-import { Button } from '@/components/common/button';
-import { StateView } from '@/components/common/state-view';
 import { CrewRole } from '@/types/events';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import {
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // High-resolution realistic portrait avatars matching reference roster style
 const AVATAR_MAP: Record<string, string> = {
@@ -71,6 +72,23 @@ export default function EventDetailScreen() {
 
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [selectedRole, setSelectedRole] = useState<CrewRole>('PHOTOGRAPHER');
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
+  const [selectedMemberForAchievements, setSelectedMemberForAchievements] = useState<{
+    id: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+  } | null>(null);
+
+  const handleOpenAchievements = (agentId: string, agentName: string, avatarUri: string, role: string) => {
+    setSelectedMemberForAchievements({
+      id: agentId,
+      name: agentName,
+      avatar: avatarUri,
+      role,
+    });
+    setAchievementsModalVisible(true);
+  };
 
   const event = events.find(e => e.id === id);
 
@@ -186,9 +204,9 @@ export default function EventDetailScreen() {
             {event.orderTitle} · Side: {event.side}
           </Text>
 
-          <View style={[styles.metaRow, { marginTop: spacing.md }]}>
-            <Ionicons name="time-outline" size={16} color="#FF5500" />
-            <Text style={[typography.subhead, { color: colors.textPrimary, marginLeft: 6 }]}>
+          <View style={[styles.metaRow, { marginTop: 8 }]}>
+            <Ionicons name="time-outline" size={13.5} color="#FF5500" />
+            <Text style={[styles.metaText, { color: isDark ? '#D4D4D8' : colors.textSecondary, marginLeft: 6 }]}>
               {new Date(event.startTime).toLocaleString('en-IN', {
                 dateStyle: 'full',
                 timeStyle: 'short',
@@ -196,34 +214,70 @@ export default function EventDetailScreen() {
             </Text>
           </View>
 
-          <View style={[styles.metaRow, { marginTop: 6 }]}>
-            <Ionicons name="location-outline" size={16} color="#FF5500" />
-            <Text style={[typography.subhead, { color: colors.textPrimary, marginLeft: 6, flex: 1 }]}>
+          <View style={[styles.metaRow, { marginTop: 4 }]}>
+            <Ionicons name="location-outline" size={13.5} color="#FF5500" />
+            <Text style={[styles.metaText, { color: isDark ? '#D4D4D8' : colors.textSecondary, marginLeft: 6, flex: 1 }]} numberOfLines={1}>
               {event.venueName} · {event.venueAddress}
             </Text>
           </View>
 
-          {/* Quick Phone & Maps Triggers */}
-          <View style={[styles.actionRow, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle, marginTop: spacing.md, paddingTop: spacing.sm }]}>
-            {event.contactPhone && (
-              <Button
-                title={`Call (${event.contactName || 'Venue'})`}
-                onPress={() => Linking.openURL(`tel:${event.contactPhone}`)}
-                size="sm"
-                variant="outline"
-                icon={<Ionicons name="call-outline" size={14} color={colors.primary} />}
-              />
-            )}
-            {event.venueMapUrl && (
-              <Button
-                title="Google Maps"
-                onPress={() => Linking.openURL(event.venueMapUrl!)}
-                size="sm"
-                variant="outline"
-                style={{ marginLeft: 8 }}
-                icon={<Ionicons name="map-outline" size={14} color={colors.primary} />}
-              />
-            )}
+          {/* Client & Venue Action Icons Row */}
+          <View
+            style={[
+              styles.actionRow,
+              {
+                borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle,
+                marginTop: spacing.md,
+                paddingTop: spacing.sm,
+                justifyContent: 'space-between',
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 10 }}>
+              <Ionicons name="person-circle-outline" size={20} color="#FF5500" />
+              <View style={{ flex: 1 }}>
+                <Text style={[typography.subhead, { color: colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                  {event.contactName || 'Client Contact'}
+                </Text>
+                {event.contactPhone && (
+                  <Text style={[typography.caption2, { color: isDark ? '#A1A1AA' : colors.textSecondary }]}>
+                    {event.contactPhone}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* Client Call Icon Button */}
+              {event.contactPhone && (
+                <TouchableOpacity
+                  style={styles.clientCallBtn}
+                  onPress={() => Linking.openURL(`tel:${event.contactPhone}`)}
+                  activeOpacity={0.75}
+                  accessibilityLabel={`Call ${event.contactName || 'Client'}`}
+                >
+                  <Ionicons name="call" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+
+              {/* Venue Google Maps Icon Button */}
+              {event.venueMapUrl && (
+                <TouchableOpacity
+                  style={[
+                    styles.clientSocialBtn,
+                    {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceSubtle,
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : colors.border,
+                    },
+                  ]}
+                  onPress={() => Linking.openURL(event.venueMapUrl!)}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Open Venue in Google Maps"
+                >
+                  <Ionicons name="map-outline" size={16} color={isDark ? '#F4F4F5' : colors.textPrimary} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -263,6 +317,9 @@ export default function EventDetailScreen() {
             event.assignments.map(asg => {
               const avatarUri = asg.agentAvatar || AVATAR_MAP[asg.agentName] || DEFAULT_AVATAR;
               const memberPhone = asg.agentPhone || PHONE_MAP[asg.agentName] || team.find(m => m.id === asg.agentId || m.name === asg.agentName)?.phone || '+91 98200 77889';
+              const memberData = team.find(m => m.id === asg.agentId || m.name === asg.agentName);
+              const memberAchievements = memberData?.achievements || [];
+              const topAchievement = memberAchievements[0];
 
               return (
                 <View
@@ -276,8 +333,13 @@ export default function EventDetailScreen() {
                   ]}
                 >
                   <View style={styles.crewCardInner}>
-                    {/* Left Column: Circular Portrait Avatar with Lead Glow Ring */}
-                    <View style={styles.avatarWrapper}>
+                    {/* Left Column: Circular Portrait Avatar with DP Achievement Pin & Lead Glow Ring */}
+                    <TouchableOpacity
+                      style={styles.avatarWrapper}
+                      onPress={() => handleOpenAchievements(asg.agentId, asg.agentName, avatarUri, asg.role)}
+                      activeOpacity={0.8}
+                      accessibilityLabel={`View ${asg.agentName}'s achievements and honors`}
+                    >
                       <View
                         style={[
                           styles.avatarCircleRing,
@@ -292,12 +354,20 @@ export default function EventDetailScreen() {
                           resizeMode="cover"
                         />
                       </View>
+
+                      {/* Achievement Badge Pin directly attached to DP bubble */}
+                      {topAchievement && (
+                        <View style={styles.dpAchievementPin}>
+                          <AchievementBadge achievement={topAchievement} size="mini" />
+                        </View>
+                      )}
+
                       {asg.isPrimary && (
                         <View style={styles.primaryPillMini}>
                           <Text style={styles.primaryPillMiniText}>LEAD</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Right Column: Name, Role, Divider, Responsibility Brief, Action Discs */}
                     <View style={styles.crewInfoBlock}>
@@ -306,23 +376,33 @@ export default function EventDetailScreen() {
                         <Text style={[styles.crewName, { color: colors.textPrimary }]} numberOfLines={1}>
                           {asg.agentName}
                         </Text>
-                        <View
-                          style={[
-                            styles.roleTag,
-                            {
-                              backgroundColor: asg.role === 'PHOTOGRAPHER' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                              borderColor: asg.role === 'PHOTOGRAPHER' ? 'rgba(59, 130, 246, 0.35)' : 'rgba(168, 85, 247, 0.35)',
-                            },
-                          ]}
-                        >
-                          <Text
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View
                             style={[
-                              styles.roleTagText,
-                              { color: asg.role === 'PHOTOGRAPHER' ? '#60A5FA' : '#C084FC' },
+                              styles.roleTag,
+                              {
+                                backgroundColor: asg.role === 'PHOTOGRAPHER' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                                borderColor: asg.role === 'PHOTOGRAPHER' ? 'rgba(59, 130, 246, 0.35)' : 'rgba(168, 85, 247, 0.35)',
+                              },
                             ]}
+                            accessibilityLabel={asg.role === 'PHOTOGRAPHER' ? 'Photographer' : 'Videographer'}
                           >
-                            {asg.role}
-                          </Text>
+                            <Ionicons
+                              name={asg.role === 'PHOTOGRAPHER' ? 'camera' : 'videocam'}
+                              size={14}
+                              color={asg.role === 'PHOTOGRAPHER' ? '#60A5FA' : '#C084FC'}
+                            />
+                          </View>
+
+                          {canAssignCrew && (
+                            <TouchableOpacity
+                              onPress={() => handleRemoveAssignment(asg.id, asg.agentName)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              accessibilityLabel={`Remove ${asg.agentName}`}
+                            >
+                              <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       </View>
 
@@ -333,15 +413,7 @@ export default function EventDetailScreen() {
                           : asg.role === 'PHOTOGRAPHER' ? 'Candid Photographer' : 'Second Cinematographer'}
                       </Text>
 
-                      {/* Subtle Horizontal Divider Line */}
-                      <View style={[styles.crewDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.borderSubtle }]} />
-
-                      {/* Shoot Brief / Responsibility Text */}
-                      <Text style={[styles.crewBriefText, { color: isDark ? '#D4D4D8' : colors.textSecondary }]}>
-                        {getCrewBrief(asg.agentName, asg.role, asg.isPrimary)}
-                      </Text>
-
-                      {/* Action Discs Row: Dedicated Call Button + WhatsApp + SMS + Status */}
+                      {/* Action Discs Row: Dedicated Call Button + WhatsApp */}
                       <View style={styles.actionDiscsRow}>
                         {/* 1. Dedicated One-Tap CALL BUTTON for All Crew */}
                         <TouchableOpacity
@@ -350,7 +422,7 @@ export default function EventDetailScreen() {
                           activeOpacity={0.75}
                           accessibilityLabel={`Call ${asg.agentName}`}
                         >
-                          <Ionicons name="call" size={15} color="#FFFFFF" />
+                          <Ionicons name="call" size={13} color="#FFFFFF" />
                           <Text style={styles.callDiscLabel}>Call</Text>
                         </TouchableOpacity>
 
@@ -367,107 +439,8 @@ export default function EventDetailScreen() {
                           activeOpacity={0.75}
                           accessibilityLabel={`WhatsApp ${asg.agentName}`}
                         >
-                          <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
+                          <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
                         </TouchableOpacity>
-
-                        {/* 3. SMS Message Button */}
-                        <TouchableOpacity
-                          style={[
-                            styles.socialDiscBtn,
-                            {
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceSubtle,
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.border,
-                            },
-                          ]}
-                          onPress={() => handleSms(memberPhone, asg.agentName)}
-                          activeOpacity={0.75}
-                          accessibilityLabel={`Message ${asg.agentName}`}
-                        >
-                          <Ionicons name="chatbubble-ellipses-outline" size={16} color={isDark ? '#E4E4E7' : colors.textPrimary} />
-                        </TouchableOpacity>
-
-                        {/* 4. Material Receipt Status Disc */}
-                        <TouchableOpacity
-                          style={[
-                            styles.socialDiscBtn,
-                            {
-                              backgroundColor: asg.materialReceived ? 'rgba(16, 185, 129, 0.16)' : 'rgba(245, 158, 11, 0.16)',
-                              borderColor: asg.materialReceived ? 'rgba(16, 185, 129, 0.32)' : 'rgba(245, 158, 11, 0.32)',
-                            },
-                          ]}
-                          onPress={() => {
-                            if (canAssignCrew) {
-                              handleToggleReceipt(asg.id, asg.materialReceived);
-                            } else {
-                              Alert.alert(
-                                'Material Status',
-                                asg.materialReceived
-                                  ? 'All photo/video raw dumps have been verified and received by the studio.'
-                                  : 'Awaiting raw dumps and media submission to the studio workstation.'
-                              );
-                            }
-                          }}
-                          activeOpacity={0.75}
-                        >
-                          <Ionicons
-                            name={asg.materialReceived ? 'checkmark-done' : 'hourglass-outline'}
-                            size={16}
-                            color={asg.materialReceived ? '#10B981' : '#F59E0B'}
-                          />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Operational Status & Material Receipt Row */}
-                      <View
-                        style={[
-                          styles.operationalBar,
-                          {
-                            backgroundColor: isDark ? 'rgba(0, 0, 0, 0.28)' : colors.surfaceSubtle,
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.borderSubtle,
-                          },
-                        ]}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.receiptStatusText, { color: asg.materialReceived ? '#10B981' : '#F59E0B' }]}>
-                            {asg.materialReceived ? '✓ Material Received by Studio' : '⏳ Awaiting Studio Receipt'}
-                          </Text>
-                          <Text style={[styles.phoneNote, { color: isDark ? '#A1A1AA' : colors.textMuted }]}>
-                            {memberPhone} · {asg.submissionCount !== undefined ? `${asg.submissionCount} submitted` : 'Pending dumps'}
-                          </Text>
-                        </View>
-
-                        {canAssignCrew && (
-                          <TouchableOpacity
-                            onPress={() => handleToggleReceipt(asg.id, asg.materialReceived)}
-                            style={[styles.toggleReceiptBtn, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : colors.border }]}
-                          >
-                            <Text style={[styles.toggleReceiptBtnText, { color: colors.primary }]}>
-                              {asg.materialReceived ? 'Undo' : 'Mark Recv'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-
-                      {/* Pay & Manager Actions */}
-                      <View style={[styles.priceRow, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.07)' : colors.borderSubtle }]}>
-                        {((canSeeCost || asg.agentId === session?.id) && asg.assignmentPay) ? (
-                          <View>
-                            <Text style={[styles.payLabel, { color: isDark ? '#71717A' : colors.textMuted }]}>
-                              {asg.agentId === session?.id ? 'My Agreed Shoot Pay:' : 'Authorized Pay:'}
-                            </Text>
-                            <Text style={[styles.payValue, { color: colors.textPrimary }]}>
-                              {formatCurrency(asg.assignmentPay)}
-                            </Text>
-                          </View>
-                        ) : <View />}
-
-                        {canAssignCrew && (
-                          <TouchableOpacity onPress={() => handleRemoveAssignment(asg.id, asg.agentName)} style={styles.removeBtn}>
-                            <Text style={[styles.removeBtnText, { color: colors.danger }]}>
-                              Remove Assignment
-                            </Text>
-                          </TouchableOpacity>
-                        )}
                       </View>
                     </View>
                   </View>
@@ -543,6 +516,18 @@ export default function EventDetailScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Modal: View & Award Agent Achievements */}
+        {selectedMemberForAchievements && (
+          <AchievementsModal
+            visible={achievementsModalVisible}
+            onClose={() => setAchievementsModalVisible(false)}
+            memberId={selectedMemberForAchievements.id}
+            memberName={selectedMemberForAchievements.name}
+            memberAvatar={selectedMemberForAchievements.avatar}
+            memberRole={selectedMemberForAchievements.role}
+          />
+        )}
       </ScrollView>
     </ScreenWrapper>
   );
@@ -578,6 +563,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  metaText: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    lineHeight: 17,
+  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -597,37 +587,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
-    marginBottom: 12,
-    marginTop: 4,
+    marginBottom: 8,
+    marginTop: 2,
   },
   reqBarText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
   },
   crewCard: {
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 14,
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
   crewCardInner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
   },
   avatarWrapper: {
     alignItems: 'center',
-    width: 64,
+    width: 48,
+    position: 'relative',
+  },
+  dpAchievementPin: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    elevation: 4,
+  },
+  achievementHonorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+  },
+  achievementHonorChipText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    maxWidth: 130,
   },
   avatarCircleRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    padding: 2,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    padding: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -636,19 +653,19 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 22,
   },
   primaryPillMini: {
-    marginTop: -8,
+    marginTop: -6,
     backgroundColor: '#FF5500',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: '#FFF',
   },
   primaryPillMiniText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
@@ -663,25 +680,42 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   crewName: {
-    fontSize: 16.5,
+    fontSize: 14.5,
     fontWeight: '700',
     flex: 1,
   },
   roleTag: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  roleTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  clientCallBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  clientSocialBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   crewRoleSubtitle: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 1,
   },
   crewDivider: {
     height: 1,
@@ -694,31 +728,31 @@ const styles = StyleSheet.create({
   actionDiscsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
+    gap: 6,
+    marginTop: 5,
   },
   callDiscBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF5500',
-    paddingHorizontal: 12,
-    height: 36,
-    borderRadius: 18,
-    gap: 6,
-    shadowColor: '#FF5500',
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 3,
+    backgroundColor: '#22C55E',
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    gap: 5,
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   callDiscLabel: {
-    fontSize: 12.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   socialDiscBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,

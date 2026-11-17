@@ -1,5 +1,6 @@
 import { UserRole, Profession, EditingCategory } from './auth';
 import { RolePermissions } from './permissions';
+import { AgentAchievement } from './achievements';
 
 export interface AgentRate {
   id: string;
@@ -28,6 +29,7 @@ export interface TeamMember {
   profession?: Profession; // If has shooting capability
   editingCategories?: EditingCategory[]; // If has editing capability
   rates?: AgentRate[];
+  achievements?: AgentAchievement[];
   customPermissions?: RolePermissions; // For managers or custom editors
   openAssignmentsCount: number;
   openTasksCount: number;

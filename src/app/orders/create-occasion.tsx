@@ -9,7 +9,6 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as Crypto from 'expo-crypto';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -39,7 +38,7 @@ export default function CreateOccasionScreen() {
 
     setIsSubmitting(true);
     try {
-      const idempotencyKey = Crypto.randomUUID();
+      const idempotencyKey = 'ord-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9);
       const newOrder = createOccasionOrder({
         clientName,
         clientPhone,

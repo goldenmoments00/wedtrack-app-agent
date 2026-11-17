@@ -18,12 +18,15 @@ import { StatusBadge } from '@/components/common/status-badge';
 import { formatCurrency } from '@/components/common/money-view';
 import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
+import { AchievementBadge } from '@/components/achievements/achievement-badge';
+import { AchievementsModal } from '@/components/achievements/achievements-modal';
 
 export default function TeamMemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const { team, toggleMemberActive, updateCapability } = useDemoStore();
-  const { colors, typography, spacing, radii } = useTheme();
+  const { colors, typography, spacing, radii, isDark } = useTheme();
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
 
   const member = team.find(m => m.id === id);
 
@@ -106,6 +109,75 @@ export default function TeamMemberDetailScreen() {
           </View>
         </View>
 
+        {/* Studio Honors & Credentials Card (Achievements System) */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.md },
+          ]}
+        >
+          <View style={styles.topRow}>
+            <View>
+              <Text style={[typography.headline, { color: colors.textPrimary }]}>Studio Honors & Credentials</Text>
+              <Text style={[typography.caption1, { color: colors.textSecondary, marginTop: 2 }]}>
+                Official badges conferred by studio administration
+              </Text>
+            </View>
+            {isOwnerOrAdmin && (
+              <Button
+                title="+ Manage Badges"
+                onPress={() => setAchievementsModalVisible(true)}
+                size="sm"
+                variant="primary"
+              />
+            )}
+          </View>
+
+          {(member.achievements && member.achievements.length > 0) ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: spacing.md }}>
+              {member.achievements.map(ach => (
+                <TouchableOpacity
+                  key={ach.id}
+                  style={[
+                    styles.achievementMiniCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surfaceSubtle,
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+                    },
+                  ]}
+                  onPress={() => setAchievementsModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <AchievementBadge achievement={ach} size="sm" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[typography.caption1, { color: colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                      {ach.title}
+                    </Text>
+                    <Text style={[typography.caption2, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {ach.subtitle}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.emptyAchievementBox, { borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border }]}
+              onPress={() => setAchievementsModalVisible(true)}
+            >
+              <Ionicons name="ribbon-outline" size={24} color={colors.textSecondary} />
+              <Text style={[typography.caption1, { color: colors.textPrimary, marginTop: 6, fontWeight: '600' }]}>
+                No badges conferred yet
+              </Text>
+              {isOwnerOrAdmin && (
+                <Text style={[typography.caption2, { color: colors.primary, marginTop: 2 }]}>
+                  Tap here to confer this agent's first achievement
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Dual Capability Controls (TEAM-03, TEAM-04) */}
         <View
           style={[
@@ -173,6 +245,16 @@ export default function TeamMemberDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal: View & Award Agent Achievements */}
+      <AchievementsModal
+        visible={achievementsModalVisible}
+        onClose={() => setAchievementsModalVisible(false)}
+        memberId={member.id}
+        memberName={member.name}
+        memberAvatar={member.avatarUrl}
+        memberRole={member.roles.join(' & ')}
+      />
     </ScreenWrapper>
   );
 }
@@ -208,5 +290,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+  },
+  achievementMiniCard: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  emptyAchievementBox: {
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginTop: 12,
   },
 });
