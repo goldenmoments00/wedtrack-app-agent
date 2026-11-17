@@ -28,6 +28,7 @@ import { StateView } from '@/components/common/state-view';
 import { AchievementBadge } from '@/components/achievements/achievement-badge';
 import { AchievementsModal } from '@/components/achievements/achievements-modal';
 import { InteractiveBot } from '@/components/mascot/interactive-bot';
+import { PreShootDrawer } from '@/components/mascot/pre-shoot-drawer';
 
 export default function TabIndexScreen() {
   const insets = useSafeAreaInsets();
@@ -38,11 +39,13 @@ export default function TabIndexScreen() {
     editingTasks,
     payroll,
     claimTask,
+    mascotEnabled,
   } = useDemoStore();
   const { colors, typography, spacing, radii, isDark } = useTheme();
 
   const [refreshing, setRefreshing] = useState(false);
   const [heroAchievementsVisible, setHeroAchievementsVisible] = useState(false);
+  const [preShootDrawerVisible, setPreShootDrawerVisible] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('NOV 26');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'COMPLETED'>('ALL');
   const [agentFilter, setAgentFilter] = useState<'ALL' | 'UPCOMING' | 'PENDING' | 'COMPLETED'>('ALL');
@@ -995,38 +998,64 @@ export default function TabIndexScreen() {
               </View>
             </View>
 
-            {/* Bottom row: Next Event highlight banner */}
+            {/* Bottom row: Next Event highlight banner + Pre-Shoot Briefing Mascot Card (Option 2) */}
             {nextShoot && (
-              <TouchableOpacity
-                style={styles.freshHeroNextBanner}
-                onPress={() => router.push(`/events/${nextShoot.id}`)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.freshHeroNextDateBadge}>
-                  <Text style={styles.freshHeroNextDateNum}>
-                    {new Date(nextShoot.startTime).getDate() || 18}
-                  </Text>
-                  <Text style={styles.freshHeroNextDateMonth}>
-                    {monthsShort[new Date(nextShoot.startTime).getMonth()] || 'NOV'}
-                  </Text>
-                </View>
+              <View style={styles.freshHeroBannerRow}>
+                <TouchableOpacity
+                  style={styles.freshHeroNextBanner}
+                  onPress={() => router.push(`/events/${nextShoot.id}`)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.freshHeroNextDateBadge}>
+                    <Text style={styles.freshHeroNextDateNum}>
+                      {new Date(nextShoot.startTime).getDate() || 18}
+                    </Text>
+                    <Text style={styles.freshHeroNextDateMonth}>
+                      {monthsShort[new Date(nextShoot.startTime).getMonth()] || 'NOV'}
+                    </Text>
+                  </View>
 
-                <View style={styles.freshHeroNextInfo}>
-                  <Text style={styles.freshHeroNextTag}>NEXT EVENT</Text>
-                  <Text style={styles.freshHeroNextTitle} numberOfLines={1}>
-                    {nextShoot.eventTypeName.toLowerCase().includes('ashirb')
-                      ? 'BRIDE & GROOM ASHIRBD'
-                      : nextShoot.orderTitle}
-                  </Text>
-                  <Text style={styles.freshHeroNextVenue} numberOfLines={1}>
-                    {nextShoot.venueName || 'Melaghar Lakeview'}
-                  </Text>
-                </View>
+                  <View style={styles.freshHeroNextInfo}>
+                    <Text style={styles.freshHeroNextTag}>NEXT EVENT</Text>
+                    <Text style={styles.freshHeroNextTitle} numberOfLines={1}>
+                      {nextShoot.eventTypeName.toLowerCase().includes('ashirb')
+                        ? 'BRIDE & GROOM ASHIRBD'
+                        : nextShoot.orderTitle}
+                    </Text>
+                    <Text style={styles.freshHeroNextVenue} numberOfLines={1}>
+                      {nextShoot.venueName || 'Melaghar Lakeview'}
+                    </Text>
+                  </View>
 
-                <View style={styles.freshHeroNextBtn}>
-                  <Ionicons name="arrow-forward" size={17} color="#FF5500" />
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.freshHeroNextBtn}>
+                    <Ionicons name="arrow-forward" size={17} color="#FF5500" />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Option 2: Pre-Shoot Briefing Mascot Card in Hero */}
+                {mascotEnabled && (
+                  <TouchableOpacity
+                    style={styles.freshHeroBriefingCard}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setPreShootDrawerVisible(true);
+                    }}
+                    activeOpacity={0.85}
+                    accessibilityLabel="Open Pre-Shoot Briefing Checklist"
+                  >
+                    <View style={styles.briefingMascotWrapper} pointerEvents="none">
+                      <InteractiveBot
+                        size="xs"
+                        category="agent_shoot"
+                        showBubbleByDefault={false}
+                      />
+                    </View>
+                    <View style={styles.briefingBadge}>
+                      <Text style={styles.briefingBadgeText}>SHOOT BRIEF</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
 
@@ -1296,16 +1325,19 @@ export default function TabIndexScreen() {
           </View>
         </ScrollView>
 
-        {/* Floating Shoot Day Companion Mascot ("Chhotu") */}
-        <View style={styles.agentFloatingBot} pointerEvents="box-none">
-          <InteractiveBot
-            size="sm"
-            category="agent_shoot"
-            bubbleAlign="right"
-            showBubbleByDefault={true}
-            initialMessage="SD card & battery check korecho? 📸"
-          />
-        </View>
+        {/* Pre-Shoot Briefing Drawer Modal */}
+        <PreShootDrawer
+          visible={preShootDrawerVisible}
+          onClose={() => setPreShootDrawerVisible(false)}
+          eventTitle={
+            nextShoot?.eventTypeName.toLowerCase().includes('ashirb')
+              ? 'BRIDE & GROOM ASHIRBD'
+              : nextShoot?.orderTitle || 'BRIDE & GROOM ASHIRBD'
+          }
+          venueName={nextShoot?.venueName || 'Melaghar Lakeview'}
+          clientPhone={nextShoot?.contactPhone || '+91 98300 12345'}
+          callTime="6:30 AM"
+        />
 
         {/* Modal: View & Award Agent Achievements */}
         <AchievementsModal
@@ -1586,6 +1618,19 @@ export default function TabIndexScreen() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Floating Editor Desk Companion Mascot ("Chhotu") */}
+        {mascotEnabled && (
+          <View style={styles.editorFloatingBot} pointerEvents="box-none">
+            <InteractiveBot
+              size="sm"
+              category="work_reminder"
+              bubbleAlign="right"
+              showBubbleByDefault={true}
+              initialMessage="Ctrl + S dite bhulo na! 🎬"
+            />
+          </View>
+        )}
       </View>
     );
   }
@@ -2713,15 +2758,59 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
+  freshHeroBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 8,
+  },
   freshHeroNextBanner: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderRadius: 18,
     padding: 10,
-    marginTop: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  freshHeroBriefingCard: {
+    width: 80,
+    height: 62,
+    backgroundColor: 'rgba(255, 85, 0, 0.18)',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 85, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 3,
+    overflow: 'visible',
+  },
+  briefingMascotWrapper: {
+    width: 48,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  briefingBadge: {
+    backgroundColor: '#FF5500',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginTop: -2,
+  },
+  briefingBadgeText: {
+    fontSize: 7.5,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  editorFloatingBot: {
+    position: 'absolute',
+    bottom: 96,
+    right: 14,
+    zIndex: 9999,
   },
   freshHeroNextDateBadge: {
     backgroundColor: '#FFFFFF',

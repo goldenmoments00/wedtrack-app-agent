@@ -29,7 +29,7 @@ export interface AgentProfileViewProps {
 export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewProps) {
   const insets = useSafeAreaInsets();
   const { session, updateProfile, signOut, mode } = useAuth();
-  const { events, team } = useDemoStore();
+  const { events, team, mascotEnabled, toggleMascotEnabled } = useDemoStore();
   const { isDark } = useTheme();
 
   const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
@@ -478,6 +478,50 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                       : (isDark ? '#8B949E' : '#FFFFFF'),
                   },
                   soundEnabled ? styles.switchThumbRight : styles.switchThumbLeft,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Item 4: Studio Companion Mascot (Chhotu) */}
+          <TouchableOpacity
+            style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle, marginTop: 8 }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toggleMascotEnabled();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? 'rgba(244, 119, 48, 0.15)' : '#F3DED5' }]}>
+              <Ionicons name="sparkles" size={18} color={themeColors.accent} />
+            </View>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={[styles.capsuleRowTitle, { color: themeColors.textPrimary }]}>Studio Companion (Chhotu)</Text>
+              <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                Shoot tips, editing advice & interactive banter
+              </Text>
+            </View>
+
+            {/* Signature Switch */}
+            <View
+              style={[
+                styles.switchTrack,
+                {
+                  backgroundColor: mascotEnabled
+                    ? themeColors.switchTrack
+                    : (isDark ? '#262F3D' : '#D5CEC7'),
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.switchThumb,
+                  {
+                    backgroundColor: mascotEnabled
+                      ? themeColors.switchThumb
+                      : (isDark ? '#8B949E' : '#FFFFFF'),
+                  },
+                  mascotEnabled ? styles.switchThumbRight : styles.switchThumbLeft,
                 ]}
               />
             </View>

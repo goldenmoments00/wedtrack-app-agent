@@ -98,6 +98,10 @@ interface DemoStoreContextType {
   savePackageDraft: (draftId: string) => void;
   setStudioPro: (enabled: boolean) => void;
   resetAllDemoData: () => void;
+
+  // Mascot Companion Settings
+  mascotEnabled: boolean;
+  toggleMascotEnabled: () => void;
 }
 
 const DemoStoreContext = createContext<DemoStoreContextType | null>(null);
@@ -119,6 +123,11 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<SubscriptionState>(INITIAL_SUBSCRIPTION);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>(INITIAL_ACTIVITY_LOGS);
   const [studio, setStudio] = useState<StudioBranding>(DEMO_STUDIOS.aura);
+  const [mascotEnabled, setMascotEnabled] = useState<boolean>(true);
+
+  const toggleMascotEnabled = () => {
+    setMascotEnabled(prev => !prev);
+  };
 
   const logActivity = (action: string, entityType: string, entityId: string, title: string, details: string) => {
     const entry: ActivityLogEntry = {
@@ -985,6 +994,9 @@ export function DemoStoreProvider({ children }: { children: React.ReactNode }) {
         savePackageDraft,
         setStudioPro,
         resetAllDemoData,
+
+        mascotEnabled,
+        toggleMascotEnabled,
       }}
     >
       {children}

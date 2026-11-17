@@ -23,7 +23,7 @@ export type BotExpression =
   | 'thinking';
 
 interface InteractiveBotProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   category?: MessageCategory;
   onPress?: (message: string) => void;
   showBubbleByDefault?: boolean;
@@ -55,7 +55,7 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   const bubbleAnim = useRef(new Animated.Value(showBubbleByDefault ? 1 : 0)).current;
 
   // Scale mapping
-  const scale = size === 'sm' ? 0.65 : size === 'lg' ? 1.2 : 0.9;
+  const scale = size === 'xs' ? 0.45 : size === 'sm' ? 0.65 : size === 'lg' ? 1.2 : 0.9;
   const baseWidth = 100 * scale;
   const baseHeight = 110 * scale;
 
