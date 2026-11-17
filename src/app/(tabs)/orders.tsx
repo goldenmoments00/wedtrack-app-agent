@@ -12,6 +12,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -45,6 +46,10 @@ export default function TabOrdersScreen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+  const [selectedYear, setSelectedYear] = useState<string>('ALL');
+  const [sortOrder, setSortOrder] = useState<'DEFAULT' | 'DATE_DESC' | 'DATE_ASC' | 'ID_DESC'>('DEFAULT');
+  const [activeFilterModal, setActiveFilterModal] = useState<'STATUS' | 'MONTH' | 'YEAR' | 'SORT' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // Submissions state for Agent
@@ -66,19 +71,47 @@ export default function TabOrdersScreen() {
   };
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
+    let result = orders.filter(o => {
       const matchSearch =
         searchQuery.trim() === '' ||
         o.tenantOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (o.venueLocation && o.venueLocation.toLowerCase().includes(searchQuery.toLowerCase()));
+        (o.venueLocation && o.venueLocation.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (o.packageName && o.packageName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchStatus = selectedStatus === 'ALL' || o.status === selectedStatus;
+      const matchStatus =
+        selectedStatus === 'ALL' ||
+        o.status === selectedStatus ||
+        (selectedStatus === 'IN_PROGRESS' && o.status === 'IN_PROGRESS') ||
+        (selectedStatus === 'CONFIRMED' && o.status === 'CONFIRMED');
 
-      return matchSearch && matchStatus;
+      let matchMonth = true;
+      if (selectedMonth !== 'ALL') {
+        const d = new Date(o.eventDate);
+        const m = d.toLocaleDateString('en-GB', { month: 'short' });
+        matchMonth = selectedMonth.toLowerCase().includes(m.toLowerCase());
+      }
+
+      let matchYear = true;
+      if (selectedYear !== 'ALL') {
+        const y = new Date(o.eventDate).getFullYear().toString();
+        matchYear = y === selectedYear;
+      }
+
+      return matchSearch && matchStatus && matchMonth && matchYear;
     });
-  }, [orders, searchQuery, selectedStatus]);
+
+    if (sortOrder === 'DATE_ASC') {
+      result = [...result].sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+    } else if (sortOrder === 'DATE_DESC') {
+      result = [...result].sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+    } else if (sortOrder === 'ID_DESC') {
+      result = [...result].sort((a, b) => b.tenantOrderNumber.localeCompare(a.tenantOrderNumber));
+    }
+
+    return result;
+  }, [orders, searchQuery, selectedStatus, selectedMonth, selectedYear, sortOrder]);
 
   const workspace = session?.activeWorkspace || 'OPERATIONS';
   const isAgent = workspace === 'SHOOTS';
@@ -894,219 +927,398 @@ export default function TabOrdersScreen() {
   }
 
   // ----------------------------------------------------
-  // ORDER BOOK (Admin / Manager / Editor Claiming)
+  // ORDER MANAGEMENT (Exact Match to User Reference)
   // ----------------------------------------------------
-  const statuses = ['ALL', 'PENDING', 'CONFIRMED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+  const statuses = ['ALL', 'CONFIRMED', 'IN_PROGRESS', 'PENDING', 'COMPLETED', 'CANCELLED'];
+  const months = ['ALL', 'Nov', 'Oct', 'Sep', 'Aug', 'Jul'];
+  const years = ['ALL', '2026', '2025'];
+  const sortOptions = [
+    { label: 'Default (Original)', value: 'DEFAULT' },
+    { label: 'Date (Newest First)', value: 'DATE_DESC' },
+    { label: 'Date (Oldest First)', value: 'DATE_ASC' },
+    { label: 'Order # (High to Low)', value: 'ID_DESC' },
+  ];
 
-  // Unassigned tasks eligible for editor self-claiming (EDR-02)
-  const unassignedTasks = editingTasks.filter(t => !t.editorId && t.status === 'PENDING');
-
-  const handleClaim = (task: (typeof editingTasks)[0]) => {
-    const editorId = session?.id || 'usr-edr-01';
-    const editorName = session?.name || 'Editor';
-    const ok = claimTask(task.id, editorId, editorName);
-    if (ok) {
-      Alert.alert('Task Claimed!', `You have claimed "${task.title}". It is now in your My Work queue.`);
-    } else {
-      Alert.alert('Unavailable', 'This task was just claimed by another editor.');
+  const getStatusBadgeColors = (st: string) => {
+    switch (st) {
+      case 'CONFIRMED':
+        return { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8' };
+      case 'IN_PROGRESS':
+        return { bg: '#F5F3FF', border: '#DDD6FE', text: '#6D28D9' };
+      case 'PENDING':
+        return { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309' };
+      case 'COMPLETED':
+        return { bg: '#F0FDF4', border: '#BBF7D0', text: '#15803D' };
+      case 'CANCELLED':
+        return { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626' };
+      default:
+        return { bg: '#F3F4F6', border: '#E5E7EB', text: '#4B5563' };
     }
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.omRoot, { backgroundColor: '#F8F4EE' }]}>
       <DemoBanner />
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
+        contentContainerStyle={[
+          styles.omScrollContent,
+          {
+            paddingTop: Math.max(insets.top, 14) + 6,
+            paddingHorizontal: 16,
+            paddingBottom: 110,
+          },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={[typography.title1, { color: colors.textPrimary }]}>Order Book</Text>
-            <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-              {filteredOrders.length} bookings found
+        {/* Top Header Row: Icon + Title + Subtitle */}
+        <View style={styles.omHeaderRow}>
+          <View style={styles.omHeaderIconBox}>
+            <Ionicons name="receipt-outline" size={20} color="#EA580C" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.omHeaderTitle}>Order Management</Text>
+            <Text style={styles.omHeaderSubtitle}>
+              Track bookings, payments, and delivery progress
             </Text>
           </View>
+        </View>
 
-          {permissions.destinations.includes('Orders') && workspace === 'OPERATIONS' && (
-            <Button
-              title="+ New Booking"
-              onPress={() => router.push('/orders/create-wedding')}
-              size="sm"
-              variant="primary"
+        {/* Search & Filter Card */}
+        <View style={styles.omSearchCard}>
+          {/* Search Input Bar */}
+          <View style={styles.omSearchInputRow}>
+            <Ionicons name="search-outline" size={17} color="#9CA3AF" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search orders, clients, phone..."
+              placeholderTextColor="#9CA3AF"
+              style={styles.omSearchInput}
             />
-          )}
-        </View>
-
-        {/* Unassigned Tasks Banner for Editors (EDR-02) */}
-        {isEditor && unassignedTasks.length > 0 && (
-          <View
-            style={[
-              styles.claimBanner,
-              { backgroundColor: colors.infoSubtle, borderColor: colors.info, borderRadius: radii.md, marginTop: spacing.md },
-            ]}
-          >
-            <Text style={[typography.headline, { color: colors.infoText }]}>
-              {unassignedTasks.length} Available Tasks to Self-Claim
-            </Text>
-            <Text style={[typography.footnote, { color: colors.textPrimary, marginTop: 2 }]}>
-              The studio has unassigned editing tasks in your category. Tap to claim work into your queue.
-            </Text>
-
-            {unassignedTasks.map(task => (
-              <View
-                key={task.id}
-                style={[
-                  styles.unassignedRow,
-                  { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.sm, marginTop: spacing.xs },
-                ]}
-              >
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={[typography.headline, { color: colors.textPrimary }]}>{task.title}</Text>
-                  <Text style={[typography.caption1, { color: colors.textSecondary }]}>
-                    {task.orderTitle} · {task.category}
-                  </Text>
-                </View>
-                <Button
-                  title="Claim Task"
-                  onPress={() => handleClaim(task)}
-                  size="sm"
-                  variant="primary"
-                />
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Search Bar */}
-        <View
-          style={[
-            styles.searchContainer,
-            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.md },
-          ]}
-        >
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by order #, couple name or venue..."
-            placeholderTextColor={colors.textMuted}
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Status Filter Horizontal Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
-          contentContainerStyle={{ gap: 8 }}
-        >
-          {statuses.map(st => {
-            const isSelected = selectedStatus === st;
-            return (
+            {searchQuery.length > 0 && (
               <TouchableOpacity
-                key={st}
-                onPress={() => setSelectedStatus(st)}
-                style={[
-                  styles.filterPill,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.surface,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    borderRadius: radii.full,
-                  },
-                ]}
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text
-                  style={[
-                    typography.caption1,
-                    { color: isSelected ? colors.primaryText : colors.textSecondary, fontWeight: '600' },
-                  ]}
-                >
-                  {st}
+                <Ionicons name="close-circle" size={17} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Quick Filter Control Pills */}
+          <View style={styles.omFiltersRow}>
+            {/* 1. Sort Pill */}
+            <TouchableOpacity
+              style={[styles.omFilterPill, sortOrder !== 'DEFAULT' && styles.omFilterPillActive]}
+              onPress={() => setActiveFilterModal('SORT')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.omFilterPillText}>⇅ Sort</Text>
+            </TouchableOpacity>
+
+            {/* 2. Statuses Pill */}
+            <TouchableOpacity
+              style={[styles.omFilterPill, selectedStatus !== 'ALL' && styles.omFilterPillActive]}
+              onPress={() => setActiveFilterModal('STATUS')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="reorder-three-outline" size={14} color="#554238" />
+              <Text style={styles.omFilterPillText}>
+                {selectedStatus === 'ALL' ? 'All Statuses' : selectedStatus.replace('_', ' ')}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color="#8A7A72" />
+            </TouchableOpacity>
+
+            {/* 3. Months Pill */}
+            <TouchableOpacity
+              style={[styles.omFilterPill, selectedMonth !== 'ALL' && styles.omFilterPillActive]}
+              onPress={() => setActiveFilterModal('MONTH')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={13} color="#554238" />
+              <Text style={styles.omFilterPillText}>
+                {selectedMonth === 'ALL' ? 'All Months' : selectedMonth}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color="#8A7A72" />
+            </TouchableOpacity>
+
+            {/* 4. Years Pill */}
+            <TouchableOpacity
+              style={[styles.omFilterPill, selectedYear !== 'ALL' && styles.omFilterPillActive]}
+              onPress={() => setActiveFilterModal('YEAR')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.omFilterPillText}>
+                {selectedYear === 'ALL' ? 'All Years' : selectedYear}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color="#8A7A72" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Orders Card Container (matching reference with left orange bar) */}
+        <View style={styles.omOrdersCardContainer}>
+          {/* Left Orange Accent Line along the container */}
+          <View style={styles.omLeftOrangeAccent} />
+
+          {filteredOrders.length === 0 ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <Ionicons name="search-outline" size={32} color="#D1C7BD" />
+              <Text style={[styles.omEmptyText, { marginTop: 8 }]}>
+                No orders match your filter criteria.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  setSelectedStatus('ALL');
+                  setSelectedMonth('ALL');
+                  setSelectedYear('ALL');
+                  setSortOrder('DEFAULT');
+                }}
+                style={{
+                  marginTop: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  backgroundColor: '#FFF3EC',
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: '#EA580C', fontWeight: '700', fontSize: 13 }}>
+                  Reset Filters
                 </Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            </View>
+          ) : (
+            filteredOrders.map((order, idx) => {
+              const dateObj = new Date(order.eventDate);
+              const day = String(dateObj.getDate()).padStart(2, '0');
+              const month = dateObj.toLocaleDateString('en-GB', { month: 'short' });
+              const year = String(dateObj.getFullYear()).slice(-2);
+              const formattedDate = `${day} ${month} ${year}`;
+              const categoryText =
+                order.packageName || (order.type === 'WEDDING' ? 'VIVAH —' : 'Occasion —');
+              const stStyle = getStatusBadgeColors(order.status);
+              const isLast = idx === filteredOrders.length - 1;
 
-        {/* Orders List */}
-        {filteredOrders.length === 0 ? (
-          <StateView
-            type="filtered-empty"
-            onAction={() => {
-              setSearchQuery('');
-              setSelectedStatus('ALL');
-            }}
-          />
-        ) : (
-          filteredOrders.map(order => (
-            <TouchableOpacity
-              key={order.id}
-              onPress={() => router.push(`/orders/${order.id}` as any)}
-              style={[
-                styles.card,
-                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.sm },
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[typography.caption2, { color: colors.textMuted }]}>
-                    {order.tenantOrderNumber}
-                  </Text>
-                  {order.priority === 'PINNED' && (
-                    <Ionicons name="pin" size={14} color={colors.gold} />
-                  )}
-                </View>
-                <StatusBadge label={order.status} variant={mapOrderStatusToVariant(order.status)} size="sm" />
-              </View>
-
-              <Text style={[typography.title3, { color: colors.textPrimary, marginTop: 4 }]}>
-                {order.title}
-              </Text>
-              <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                {order.packageName || 'Custom Package'} · {order.eventCount} events
-              </Text>
-
-              <View style={[styles.metaRow, { marginTop: 6 }]}>
-                <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-                <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4 }]}>
-                  {new Date(order.eventDate).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </Text>
-                <Text style={[typography.caption1, { color: colors.textMuted, marginHorizontal: 6 }]}>•</Text>
-                <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-                <Text style={[typography.caption1, { color: colors.textSecondary, marginLeft: 4, flex: 1 }]} numberOfLines={1}>
-                  {order.venueLocation || 'Venue TBD'}
-                </Text>
-              </View>
-
-              {/* Permitted Price / Balance row */}
-              {permissions.money.revenue !== 'none' && order.financials && (
-                <View style={[styles.priceRow, { borderTopColor: colors.borderSubtle, marginTop: spacing.sm, paddingTop: spacing.xs }]}>
-                  <Text style={[typography.caption1, { color: colors.textSecondary }]}>Total / Balance:</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <MoneyView amount={order.financials.totalAmount} permission={permissions.money.revenue} />
-                    <Text style={[typography.caption1, { color: colors.textMuted }]}>/</Text>
-                    <MoneyView
-                      amount={order.financials.balanceDue}
-                      permission={permissions.money.revenue}
-                      style={{ color: (order.financials.balanceDue || 0) > 0 ? colors.warning : colors.success }}
-                    />
+              return (
+                <TouchableOpacity
+                  key={order.id}
+                  onPress={() => router.push(`/orders/${order.id}` as any)}
+                  activeOpacity={0.75}
+                  style={[
+                    styles.omOrderItemRow,
+                    isLast && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  {/* Top Line: Tag Badge + Pin Icon + Title */}
+                  <View style={styles.omOrderTopRow}>
+                    <View style={styles.omTagBadge}>
+                      <Text style={styles.omTagText}>{order.tenantOrderNumber}</Text>
+                    </View>
+                    <Ionicons name="pricetag" size={13} color="#F59E0B" style={{ marginLeft: 6 }} />
+                    <Text style={styles.omOrderTitle} numberOfLines={1}>
+                      {order.title}
+                    </Text>
                   </View>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))
-        )}
+
+                  {/* Middle Line: Date · Category */}
+                  <Text style={styles.omOrderSubline}>
+                    {formattedDate} · {categoryText}
+                  </Text>
+
+                  {/* Bottom Line: Status Badge + Right Action Icons */}
+                  <View style={styles.omOrderBottomRow}>
+                    <View
+                      style={[
+                        styles.omStatusBadge,
+                        { backgroundColor: stStyle.bg, borderColor: stStyle.border },
+                      ]}
+                    >
+                      <Text style={[styles.omStatusText, { color: stStyle.text }]}>
+                        {order.status === 'IN_PROGRESS' ? 'IN PROGRESS' : order.status}
+                      </Text>
+                      <Text style={[styles.omStatusDash, { color: stStyle.text }]}> —</Text>
+                    </View>
+
+                    <View style={styles.omActionsGroup}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() =>
+                          Alert.alert(
+                            'Order Document',
+                            `Deliverable invoice & contract for ${order.tenantOrderNumber}`
+                          )
+                        }
+                      >
+                        <Ionicons name="document-text-outline" size={17} color="#BCAAA4" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() =>
+                          Alert.alert(
+                            'Financial Summary',
+                            `Order ${order.tenantOrderNumber}\nTotal: ₹${(
+                              order.financials?.totalAmount || 0
+                            ).toLocaleString('en-IN')}\nPaid: ₹${(
+                              order.financials?.paidAmount || 0
+                            ).toLocaleString('en-IN')}\nBalance: ₹${(
+                              order.financials?.balanceDue || 0
+                            ).toLocaleString('en-IN')}`
+                          )
+                        }
+                      >
+                        <Ionicons name="wallet-outline" size={17} color="#BCAAA4" />
+                      </TouchableOpacity>
+
+                      <Ionicons name="chevron-forward" size={17} color="#BCAAA4" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
+
+      {/* Filter Selection Modal */}
+      <Modal
+        visible={activeFilterModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveFilterModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.omModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setActiveFilterModal(null)}
+        >
+          <View style={styles.omModalSheet}>
+            <View style={styles.omModalHeader}>
+              <Text style={styles.omModalTitle}>
+                {activeFilterModal === 'SORT' && 'Sort Orders'}
+                {activeFilterModal === 'STATUS' && 'Filter by Status'}
+                {activeFilterModal === 'MONTH' && 'Filter by Month'}
+                {activeFilterModal === 'YEAR' && 'Filter by Year'}
+              </Text>
+              <TouchableOpacity onPress={() => setActiveFilterModal(null)}>
+                <Ionicons name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              {activeFilterModal === 'SORT' &&
+                sortOptions.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.omModalOption,
+                      sortOrder === opt.value && styles.omModalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSortOrder(opt.value as any);
+                      setActiveFilterModal(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.omModalOptionText,
+                        sortOrder === opt.value && styles.omModalOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    {sortOrder === opt.value && (
+                      <Ionicons name="checkmark" size={18} color="#EA580C" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+              {activeFilterModal === 'STATUS' &&
+                statuses.map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.omModalOption,
+                      selectedStatus === st && styles.omModalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedStatus(st);
+                      setActiveFilterModal(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.omModalOptionText,
+                        selectedStatus === st && styles.omModalOptionTextActive,
+                      ]}
+                    >
+                      {st === 'ALL' ? 'All Statuses' : st.replace('_', ' ')}
+                    </Text>
+                    {selectedStatus === st && (
+                      <Ionicons name="checkmark" size={18} color="#EA580C" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+              {activeFilterModal === 'MONTH' &&
+                months.map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[
+                      styles.omModalOption,
+                      selectedMonth === m && styles.omModalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedMonth(m);
+                      setActiveFilterModal(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.omModalOptionText,
+                        selectedMonth === m && styles.omModalOptionTextActive,
+                      ]}
+                    >
+                      {m === 'ALL' ? 'All Months' : m}
+                    </Text>
+                    {selectedMonth === m && (
+                      <Ionicons name="checkmark" size={18} color="#EA580C" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+              {activeFilterModal === 'YEAR' &&
+                years.map(y => (
+                  <TouchableOpacity
+                    key={y}
+                    style={[
+                      styles.omModalOption,
+                      selectedYear === y && styles.omModalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedYear(y);
+                      setActiveFilterModal(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.omModalOptionText,
+                        selectedYear === y && styles.omModalOptionTextActive,
+                      ]}
+                    >
+                      {y === 'ALL' ? 'All Years' : y}
+                    </Text>
+                    {selectedYear === y && (
+                      <Ionicons name="checkmark" size={18} color="#EA580C" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1889,5 +2101,233 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.4,
+  },
+
+  /* Order Management (Reference Layout) */
+  omRoot: {
+    flex: 1,
+  },
+  omScrollContent: {
+    flexGrow: 1,
+  },
+  omHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  omHeaderIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFF2EB',
+    borderWidth: 1,
+    borderColor: '#FFE4D6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  omHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#2B1C16',
+    letterSpacing: -0.3,
+  },
+  omHeaderSubtitle: {
+    fontSize: 12.5,
+    color: '#8A7A72',
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  omSearchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 12,
+    marginBottom: 14,
+    shadowColor: '#362118',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  omSearchInputRow: {
+    backgroundColor: '#F5F4F7',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  omSearchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    color: '#1F2937',
+    paddingVertical: 0,
+  },
+  omFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+  omFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: '#EFE9E3',
+  },
+  omFilterPillActive: {
+    backgroundColor: '#FFF2EB',
+    borderColor: '#FDBA74',
+  },
+  omFilterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B3F38',
+  },
+  omOrdersCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#F2E8E2',
+    shadowColor: '#362118',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  omLeftOrangeAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 3.5,
+    backgroundColor: '#FF6B00',
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    zIndex: 2,
+  },
+  omOrderItemRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F7EFE8',
+    backgroundColor: '#FFFFFF',
+  },
+  omOrderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  omTagBadge: {
+    backgroundColor: '#FFE8DF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  omTagText: {
+    color: '#FF4500',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  omOrderTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#2B1C16',
+    flex: 1,
+    marginLeft: 6,
+  },
+  omOrderSubline: {
+    fontSize: 11.5,
+    color: '#8A7A72',
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  omOrderBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  omStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  omStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  omStatusDash: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  omActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  omEmptyText: {
+    fontSize: 13.5,
+    color: '#8A7A72',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  omModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  omModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  omModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  omModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  omModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  omModalOptionActive: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  omModalOptionText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  omModalOptionTextActive: {
+    color: '#EA580C',
+    fontWeight: '700',
   },
 });

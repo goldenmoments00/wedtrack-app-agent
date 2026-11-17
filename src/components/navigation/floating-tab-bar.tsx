@@ -45,29 +45,32 @@ export function FloatingTabBar({
   const screenWidth = Dimensions.get('window').width;
   const [barWidth, setBarWidth] = useState(screenWidth);
 
-  // Active Tab Index (0 to 4)
-  // 0: Events (index)
-  // 1: Deliverables (orders)
-  // 2: Switch Button (center action)
-  // 3: Work (work)
-  // 4: Profile (more)
+  // Calculate active slot based on workspace and current route
+  const getSlotFromRoute = (routeName?: string, isEditorMode?: boolean) => {
+    if (isEditorMode) {
+      if (routeName === 'orders') return 0;
+      if (routeName === 'index') return 1;
+      if (routeName === 'schedule') return 3;
+      if (routeName === 'more') return 4;
+      return 0;
+    }
+    if (routeName === 'index') return 0;
+    if (routeName === 'orders') return 1;
+    if (routeName === 'work') return 3;
+    if (routeName === 'more') return 4;
+    return 0;
+  };
+
   const [activeSlot, setActiveSlot] = useState<number>(() => {
     const curRoute = state.routes[state.index]?.name;
-    if (curRoute === 'index') return 0;
-    if (curRoute === 'orders') return 1;
-    if (curRoute === 'work') return 3;
-    if (curRoute === 'more') return 4;
-    return 0;
+    return getSlotFromRoute(curRoute, isEditor);
   });
 
-  // Keep activeSlot in sync with navigation state
+  // Keep activeSlot in sync with navigation state and workspace
   useEffect(() => {
     const curRoute = state.routes[state.index]?.name;
-    if (curRoute === 'index') setActiveSlot(0);
-    else if (curRoute === 'orders') setActiveSlot(1);
-    else if (curRoute === 'work') setActiveSlot(3);
-    else if (curRoute === 'more') setActiveSlot(4);
-  }, [state.index]);
+    setActiveSlot(getSlotFromRoute(curRoute, isEditor));
+  }, [state.index, isEditor]);
 
   // Toast notification on mode switch
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -176,11 +179,19 @@ export function FloatingTabBar({
 
   // Determine active icon for floating circular button
   let activeIcon: keyof typeof Ionicons.glyphMap = 'apps';
-  if (activeSlot === 0) activeIcon = 'apps';
-  else if (activeSlot === 1) activeIcon = 'list';
-  else if (activeSlot === 2) activeIcon = 'swap-horizontal';
-  else if (activeSlot === 3) activeIcon = 'calendar';
-  else if (activeSlot === 4) activeIcon = 'person';
+  if (isEditor) {
+    if (activeSlot === 0) activeIcon = 'document-text';
+    else if (activeSlot === 1) activeIcon = 'briefcase';
+    else if (activeSlot === 2) activeIcon = 'swap-horizontal';
+    else if (activeSlot === 3) activeIcon = 'wallet';
+    else if (activeSlot === 4) activeIcon = 'person';
+  } else {
+    if (activeSlot === 0) activeIcon = 'apps';
+    else if (activeSlot === 1) activeIcon = 'list';
+    else if (activeSlot === 2) activeIcon = 'swap-horizontal';
+    else if (activeSlot === 3) activeIcon = 'calendar';
+    else if (activeSlot === 4) activeIcon = 'person';
+  }
 
   // Saturated Vibrant Orange Color (100% matching user reference in orange)
   const vibrantOrange = '#FF5500';
@@ -262,29 +273,37 @@ export function FloatingTabBar({
 
         {/* Interactive Clickable Tabs Row (5 slots) */}
         <View style={[styles.tabsRow, { top: topY, height: 50 }]}>
-          {/* Slot 0: Events (Grid Icon) */}
+          {/* Slot 0: Editor -> Orders / Agent -> Events */}
           <TouchableOpacity
             style={styles.slotBtn}
-            onPress={() => navigateTo('index', 0)}
+            onPress={() => navigateTo(isEditor ? 'orders' : 'index', 0)}
             activeOpacity={0.7}
             accessibilityRole="tab"
-            accessibilityLabel="Events"
+            accessibilityLabel={isEditor ? 'Orders' : 'Events'}
           >
             {activeSlot !== 0 && (
-              <Ionicons name="apps-outline" size={23} color="#9E9EA7" />
+              <Ionicons
+                name={isEditor ? 'document-text-outline' : 'apps-outline'}
+                size={23}
+                color="#9E9EA7"
+              />
             )}
           </TouchableOpacity>
 
-          {/* Slot 1: Deliverables (List Icon) */}
+          {/* Slot 1: Editor -> Work / Agent -> Deliverables */}
           <TouchableOpacity
             style={styles.slotBtn}
-            onPress={() => navigateTo('orders', 1)}
+            onPress={() => navigateTo(isEditor ? 'index' : 'orders', 1)}
             activeOpacity={0.7}
             accessibilityRole="tab"
-            accessibilityLabel="Deliverables"
+            accessibilityLabel={isEditor ? 'Work' : 'Deliverables'}
           >
             {activeSlot !== 1 && (
-              <Ionicons name="list-outline" size={24} color="#9E9EA7" />
+              <Ionicons
+                name={isEditor ? 'briefcase-outline' : 'list-outline'}
+                size={24}
+                color="#9E9EA7"
+              />
             )}
           </TouchableOpacity>
 
@@ -298,23 +317,27 @@ export function FloatingTabBar({
             }}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Switch mode between Agent and Editor"
+            accessibilityLabel={isEditor ? 'Switch to Agent Mode' : 'Switch to Editor Mode'}
           >
             {activeSlot !== 2 && (
               <Ionicons name="swap-horizontal" size={24} color="#9E9EA7" />
             )}
           </TouchableOpacity>
 
-          {/* Slot 3: Assigned Work Calendar */}
+          {/* Slot 3: Editor -> Payment / Agent -> Assigned Work Calendar */}
           <TouchableOpacity
             style={styles.slotBtn}
-            onPress={() => navigateTo('work', 3)}
+            onPress={() => navigateTo(isEditor ? 'schedule' : 'work', 3)}
             activeOpacity={0.7}
             accessibilityRole="tab"
-            accessibilityLabel="Assigned Work Calendar"
+            accessibilityLabel={isEditor ? 'Payment' : 'Assigned Work Calendar'}
           >
             {activeSlot !== 3 && (
-              <Ionicons name="calendar-outline" size={23} color="#9E9EA7" />
+              <Ionicons
+                name={isEditor ? 'wallet-outline' : 'calendar-outline'}
+                size={23}
+                color="#9E9EA7"
+              />
             )}
           </TouchableOpacity>
 
