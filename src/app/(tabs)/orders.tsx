@@ -783,137 +783,100 @@ export default function TabOrdersScreen() {
                             </Text>
                           </View>
 
-                          {/* Submit Action Button (When not expanded) */}
-                          {!isSubmitted && !isExpanded && (
-                            <TouchableOpacity
-                              style={styles.triggerSubmitBtn}
-                              onPress={() => toggleExpand(assignment.id)}
-                              activeOpacity={0.85}
-                            >
-                              <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
-                              <Text style={styles.triggerSubmitText}>Submit</Text>
-                              <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-                            </TouchableOpacity>
-                          )}
-
-                          {/* Deliverables Action / Record Box */}
-                          {((!isSubmitted && isExpanded) || isSubmitted) && (
-                            <View style={{ marginTop: 8 }}>
-                              {isSubmitted ? (
-                                /* Display Verified Submitted Record */
-                                <View style={styles.submittedVerifiedBox}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                      <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                                      <Text style={[styles.verifiedCountNum, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                                        {assignment.submissionCount} {isPhoto ? 'RAW Photos' : '4K Clips'} Logged
-                                      </Text>
-                                    </View>
-                                    <Text style={styles.verifiedIdText}>
-                                      #ING-{assignment.id.slice(-4).toUpperCase()}
-                                    </Text>
-                                  </View>
-                                </View>
-                              ) : (
-                              /* Expanded Ingest Form - DIRECT ACCESS (No intermediate click) */
+                          {/* When Pending: Space for put number + Submit button SIDE BY SIDE in a single row */}
+                          {!isSubmitted && (
+                            <View style={styles.inlineSubmitRow}>
+                              {/* Space for putting number with direct numeric input + -/+ buttons */}
                               <View
                                 style={[
-                                  styles.smartInputCard,
+                                  styles.inlineNumberBox,
                                   {
-                                    backgroundColor: isDark ? 'rgba(28, 20, 24, 0.95)' : '#F9FAFB',
-                                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB',
+                                    backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#F3F4F6',
+                                    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E5E7EB',
                                   },
                                 ]}
                               >
-                                <Text style={[styles.inputHeading, { color: isDark ? '#FFFFFF' : '#111827' }]}>
-                                  Enter Final {isPhoto ? 'Photo Count' : 'Video Footage Clips'}
-                                </Text>
+                                <TouchableOpacity
+                                  style={styles.inlineStepBtn}
+                                  onPress={() => {
+                                    const val = Math.max(
+                                      0,
+                                      (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5)
+                                    );
+                                    setCount(String(val));
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                  activeOpacity={0.6}
+                                >
+                                  <Ionicons name="remove" size={16} color={isDark ? '#D1D5DB' : '#4B5563'} />
+                                </TouchableOpacity>
 
-                                {/* Stepper Row */}
-                                <View style={styles.stepperRow}>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.stepperBtn,
-                                      { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
-                                    ]}
-                                    onPress={() => {
-                                      const val = Math.max(
-                                        0,
-                                        (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5)
-                                      );
-                                      setCount(String(val));
-                                    }}
-                                  >
-                                    <Ionicons name="remove" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
-                                  </TouchableOpacity>
+                                <TextInput
+                                  value={currentCount}
+                                  onChangeText={setCount}
+                                  keyboardType="numeric"
+                                  selectTextOnFocus
+                                  placeholder={isPhoto ? '450' : '35'}
+                                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                                  style={[
+                                    styles.inlineNumberInput,
+                                    { color: isDark ? '#FFFFFF' : '#111827' },
+                                  ]}
+                                />
 
-                                  <TextInput
-                                    value={currentCount}
-                                    onChangeText={setCount}
-                                    keyboardType="numeric"
-                                    style={[
-                                      styles.stepperInput,
-                                      {
-                                        backgroundColor: isDark ? 'rgba(34, 22, 26, 0.9)' : '#FFFFFF',
-                                        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D1D5DB',
-                                        color: isDark ? '#FFFFFF' : '#111827',
-                                      },
-                                    ]}
-                                  />
+                                <TouchableOpacity
+                                  style={styles.inlineStepBtn}
+                                  onPress={() => {
+                                    const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
+                                    setCount(String(val));
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                                  activeOpacity={0.6}
+                                >
+                                  <Ionicons name="add" size={16} color={isDark ? '#D1D5DB' : '#4B5563'} />
+                                </TouchableOpacity>
+                              </View>
 
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.stepperBtn,
-                                      { backgroundColor: isDark ? 'rgba(46, 28, 33, 0.9)' : '#E5E7EB' },
-                                    ]}
-                                    onPress={() => {
-                                      const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
-                                      setCount(String(val));
-                                    }}
-                                  >
-                                    <Ionicons name="add" size={18} color={isDark ? '#FFFFFF' : '#111827'} />
-                                  </TouchableOpacity>
-                                </View>
+                              {/* Submit Button Side by Side in the Row */}
+                              <TouchableOpacity
+                                style={styles.inlineSubmitBtn}
+                                onPress={() =>
+                                  handleConfirmSubmission(
+                                    event.id,
+                                    assignment.id,
+                                    assignment.role,
+                                    parseInt(currentCount, 10) || (isPhoto ? 450 : 35)
+                                  )
+                                }
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
+                                <Text style={styles.inlineSubmitText}>Submit</Text>
+                                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
 
-                                {/* Action Buttons */}
-                                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                                  <TouchableOpacity
-                                    style={styles.confirmSubmitBtn}
-                                    onPress={() =>
-                                      handleConfirmSubmission(
-                                        event.id,
-                                        assignment.id,
-                                        assignment.role,
-                                        parseInt(currentCount, 10) || (isPhoto ? 450 : 35)
-                                      )
-                                    }
-                                  >
-                                    <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
-                                    <Text style={styles.confirmSubmitText}>
-                                      Confirm & Record {currentCount} {isPhoto ? 'Photos' : 'Clips'}
+                          {/* When Submitted: Display Verified Submitted Record */}
+                          {isSubmitted && (
+                            <View style={{ marginTop: 8 }}>
+                              <View style={styles.submittedVerifiedBox}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                                    <Text style={[styles.verifiedCountNum, { color: isDark ? '#FFFFFF' : '#111827' }]}>
+                                      {assignment.submissionCount} {isPhoto ? 'RAW Photos' : '4K Clips'} Logged
                                     </Text>
-                                  </TouchableOpacity>
-
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.cancelSubmitBtn,
-                                      {
-                                        borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#D1D5DB',
-                                      },
-                                    ]}
-                                    onPress={() => setExpandedAssignmentId(null)}
-                                  >
-                                    <Text style={[styles.cancelSubmitText, { color: isDark ? '#D1D5DB' : '#374151' }]}>
-                                      Close
-                                    </Text>
-                                  </TouchableOpacity>
+                                  </View>
+                                  <Text style={styles.verifiedIdText}>
+                                    #ING-{assignment.id.slice(-4).toUpperCase()}
+                                  </Text>
                                 </View>
                               </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    )}
+                            </View>
+                          )}
+                        </View>
+                      )}
             </View>
           </View>
         </View>
@@ -2037,6 +2000,59 @@ const styles = StyleSheet.create({
   cancelSubmitText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+
+  /* Side by Side: Number Input Space & Submit Button in a Single Row */
+  inlineSubmitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  inlineNumberBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+    height: 44,
+  },
+  inlineStepBtn: {
+    width: 36,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineNumberInput: {
+    width: 56,
+    height: 44,
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: 2,
+    paddingVertical: 0,
+  },
+  inlineSubmitBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FF5500',
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#FF5500',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  inlineSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 
   triggerSubmitBtn: {
