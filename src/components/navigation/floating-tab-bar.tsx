@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
@@ -43,14 +43,17 @@ export function FloatingTabBar({
   const isEditor = workspace === 'EDITING';
 
   // Floating Dock Layout Measurements
-  const dockHeight = 62;
-  const dockMarginH = 16;
-  const dockPaddingH = 8;
-  const circleSize = 44;
-  const circleRadius = circleSize / 2;
-  const dockBottom = Math.max(insets.bottom, 12) + 8;
+  const dockHeight = 60;
+  const topY = 22;
+  const totalBoxHeight = topY + dockHeight + 8;
+  const dockMarginH = 14;
+  const dockBottom = Math.max(insets.bottom, 10) + 6;
 
-  // Screen width measurement: bar width is screen width minus margins
+  // Corner radius & slot distribution
+  const r = 18; // Pill corner radius
+  const sidePadding = 22; // Inset so edge slots (0 and 4) are safely within flat top line
+
+  // Screen width measurement: bar width is screen width minus horizontal margins
   const screenWidth = Dimensions.get('window').width;
   const [barWidth, setBarWidth] = useState(screenWidth - dockMarginH * 2);
 
@@ -88,24 +91,32 @@ export function FloatingTabBar({
   // Persona Switcher modal
   const [hubVisible, setHubVisible] = useState(false);
 
-  // Slot calculations: 5 evenly spaced slots across the floating pill with padding
-  const usableWidth = barWidth - dockPaddingH * 2;
-  const slotWidth = usableWidth / 5;
-  const getSlotCenterX = (slot: number) => dockPaddingH + slotWidth * (slot + 0.5);
+  // Slot calculations: 5 slots distributed inside the dock with side padding
+  const availableSlotWidth = Math.max(0, barWidth - sidePadding * 2);
+  const slotWidth = availableSlotWidth / 5;
+  const getSlotCenterX = (slot: number) => sidePadding + slotWidth * (slot + 0.5);
 
-  // Animated X position for the floating active circle
+  // Animated X position for the liquid drop scoop and floating active circle
   const notchAnim = useRef(new Animated.Value(getSlotCenterX(activeSlot))).current;
+  const [currentNotchX, setCurrentNotchX] = useState(getSlotCenterX(activeSlot));
 
   useEffect(() => {
     const targetX = getSlotCenterX(activeSlot);
     Animated.spring(notchAnim, {
       toValue: targetX,
-      damping: 20,
-      mass: 0.7,
-      stiffness: 180,
+      damping: 15,
+      mass: 0.75,
+      stiffness: 165,
       useNativeDriver: false,
     }).start();
   }, [activeSlot, barWidth]);
+
+  useEffect(() => {
+    const listenerId = notchAnim.addListener(({ value }) => {
+      setCurrentNotchX(value);
+    });
+    return () => notchAnim.removeListener(listenerId);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -174,6 +185,49 @@ export function FloatingTabBar({
   // Saturated Vibrant Orange Color
   const vibrantOrange = '#FF5500';
 
+  // Liquid "Drop Effect" Curve Calculations (matching user reference)
+  const scoopDepth = 28; // Cradle depth where circle sits
+  const scoopSpan = 35; // Half-span of the drop scoop
+  const cradleY = topY + scoopDepth;
+
+  const leftShoulder = Math.max(r, currentNotchX - scoopSpan);
+  const rightShoulder = Math.min(barWidth - r, currentNotchX + scoopSpan);
+
+  const leftArm = Math.max(1, currentNotchX - leftShoulder);
+  const rightArm = Math.max(1, rightShoulder - currentNotchX);
+
+  const cp1X = leftShoulder + leftArm * 0.45;
+  const cp2X = currentNotchX - leftArm * 0.45;
+  const cp3X = currentNotchX + rightArm * 0.45;
+  const cp4X = rightShoulder - rightArm * 0.45;
+
+  const bottomY = topY + dockHeight;
+
+  // Closed Path for Floating Smoked Dark Dock with the Dynamic Liquid Drop Scoop
+  const liquidDropDockPath = `
+    M 0 ${topY + r}
+    A ${r} ${r} 0 0 1 ${r} ${topY}
+    L ${leftShoulder} ${topY}
+    C ${cp1X} ${topY}, ${cp2X} ${cradleY}, ${currentNotchX} ${cradleY}
+    C ${cp3X} ${cradleY}, ${cp4X} ${topY}, ${rightShoulder} ${topY}
+    L ${barWidth - r} ${topY}
+    A ${r} ${r} 0 0 1 ${barWidth} ${topY + r}
+    L ${barWidth} ${bottomY - r}
+    A ${r} ${r} 0 0 1 ${barWidth - r} ${bottomY}
+    L ${r} ${bottomY}
+    A ${r} ${r} 0 0 1 0 ${bottomY - r}
+    Z
+  `;
+
+  // Top Edge Optical Glass Specular Highlight Wave
+  const topSpecularWavePath = `
+    M ${r} ${topY}
+    L ${leftShoulder} ${topY}
+    C ${cp1X} ${topY}, ${cp2X} ${cradleY}, ${currentNotchX} ${cradleY}
+    C ${cp3X} ${cradleY}, ${cp4X} ${topY}, ${rightShoulder} ${topY}
+    L ${barWidth - r} ${topY}
+  `;
+
   return (
     <>
       {/* Toast Notification */}
@@ -183,7 +237,7 @@ export function FloatingTabBar({
             styles.toastContainer,
             {
               opacity: toastFade,
-              bottom: dockBottom + dockHeight + 16,
+              bottom: dockBottom + totalBoxHeight + 12,
               backgroundColor: '#1E2530',
               borderColor: vibrantOrange,
             },
@@ -195,7 +249,7 @@ export function FloatingTabBar({
         </Animated.View>
       )}
 
-      {/* Ambient Bottom Gradient Scrim: softly fades scrolling cards before they reach the dock */}
+      {/* Ambient Bottom Gradient Scrim: softly fades scrolling cards behind floating dock */}
       <LinearGradient
         colors={[
           'rgba(248, 249, 250, 0)',
@@ -216,45 +270,42 @@ export function FloatingTabBar({
             left: dockMarginH,
             right: dockMarginH,
             bottom: dockBottom,
-            height: dockHeight,
+            height: totalBoxHeight,
           },
         ]}
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         pointerEvents="box-none"
       >
-        {/* Frosted Glass Rounded Capsule Pill with Smoked Dark Shade */}
-        <View style={styles.dockPill}>
-          {/* Native Hardware Blur Effect */}
-          <BlurView
-            intensity={90}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
+        {/* Smoked Dark Glass Floating Dock with Dynamic Liquid Drop Notch */}
+        <Svg
+          width={barWidth}
+          height={totalBoxHeight}
+          style={StyleSheet.absoluteFill}
+        >
+          {/* Smoked Dark Glass Base Fill */}
+          <Path
+            d={liquidDropDockPath}
+            fill="rgba(20, 22, 28, 0.94)"
+            stroke="rgba(255, 255, 255, 0.16)"
+            strokeWidth={1.2}
           />
 
-          {/* Sleek Smoked Obsidian Glass Sheen */}
-          <LinearGradient
-            colors={[
-              'rgba(28, 30, 38, 0.88)',
-              'rgba(20, 22, 28, 0.84)',
-              'rgba(14, 16, 22, 0.82)',
-            ]}
-            locations={[0, 0.5, 1.0]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={StyleSheet.absoluteFill}
+          {/* Optical Glass Specular Rim Highlight along the drop curve */}
+          <Path
+            d={topSpecularWavePath}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.26)"
+            strokeWidth={1.5}
           />
+        </Svg>
 
-          {/* Optical Glass Specular Rim Highlight */}
-          <View style={styles.specularRim} />
-        </View>
-
-        {/* Floating Radiant Orange Circular Button gliding between slots */}
+        {/* Floating Radiant Orange Circular Button Nestled in the Drop Cradle */}
         <Animated.View
           style={[
             styles.floatingCircle,
             {
-              left: Animated.subtract(notchAnim, circleRadius),
-              top: (dockHeight - circleSize) / 2,
+              left: Animated.subtract(notchAnim, 24),
+              top: 1, // Emerges 21px above dock top edge (22) and nestles into scoop cradle (depth=28 => 50)
             },
           ]}
           pointerEvents="none"
@@ -263,7 +314,16 @@ export function FloatingTabBar({
         </Animated.View>
 
         {/* Interactive Clickable Tabs Row (5 slots) */}
-        <View style={styles.tabsRow}>
+        <View
+          style={[
+            styles.tabsRow,
+            {
+              top: topY,
+              height: dockHeight,
+              paddingHorizontal: sidePadding,
+            },
+          ]}
+        >
           {/* Slot 0: Editor -> Orders / Agent -> Events */}
           <TouchableOpacity
             style={styles.slotBtn}
@@ -428,53 +488,35 @@ const styles = StyleSheet.create({
   dockContainer: {
     position: 'absolute',
     zIndex: 999,
-  },
-  dockPill: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(20, 22, 28, 0.88)',
-    overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 16,
   },
-  specularRim: {
-    position: 'absolute',
-    top: 0,
-    left: 16,
-    right: 16,
-    height: 1.2,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
   floatingCircle: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,
     shadowColor: '#FF5500',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.42,
-    shadowRadius: 9,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   tabsRow: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 0,
-    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
     zIndex: 1000,
   },
   slotBtn: {

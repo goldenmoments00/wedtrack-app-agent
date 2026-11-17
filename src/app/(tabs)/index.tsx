@@ -2673,7 +2673,7 @@ const styles = StyleSheet.create({
   },
   editorFloatingBot: {
     position: 'absolute',
-    bottom: 96,
+    bottom: 112,
     right: 14,
     zIndex: 9999,
   },
