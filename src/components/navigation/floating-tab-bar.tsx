@@ -182,8 +182,12 @@ export function FloatingTabBar({
     else if (activeSlot === 4) activeIcon = 'person';
   }
 
-  // Saturated Vibrant Orange Color
+  // Saturated Vibrant Theme Colors (Color-Coded Mode Switch)
+  // Agent Mode -> Vibrant Orange (#FF5500)
+  // Editor Mode -> Vibrant Emerald Green (#10B981)
   const vibrantOrange = '#FF5500';
+  const vibrantGreen = '#10B981';
+  const switchModeColor = isEditor ? vibrantGreen : vibrantOrange;
 
   // Liquid "Drop Effect" Curve Calculations (matching user reference)
   const scoopDepth = 30; // Cradle depth where circle sits
@@ -239,12 +243,12 @@ export function FloatingTabBar({
               opacity: toastFade,
               bottom: dockBottom + totalBoxHeight + 12,
               backgroundColor: '#1E2530',
-              borderColor: vibrantOrange,
+              borderColor: switchModeColor,
             },
           ]}
           pointerEvents="none"
         >
-          <Ionicons name="sync-circle" size={20} color={vibrantOrange} />
+          <Ionicons name="sync-circle" size={20} color={switchModeColor} />
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
@@ -306,6 +310,8 @@ export function FloatingTabBar({
             {
               left: Animated.subtract(notchAnim, 22),
               top: 2, // Emerges 22px above dock top line (24) and leaves 8px bottom clearance to cradleY (54)
+              backgroundColor: (activeSlot === 2 && isEditor) ? vibrantGreen : vibrantOrange,
+              shadowColor: (activeSlot === 2 && isEditor) ? vibrantGreen : vibrantOrange,
             },
           ]}
           pointerEvents="none"
@@ -358,7 +364,7 @@ export function FloatingTabBar({
             )}
           </TouchableOpacity>
 
-          {/* Slot 2 (Center): Switch Button (Opposing Arrows Icon) */}
+          {/* Slot 2 (Center): Switch Button (Opposing Arrows Icon) - Color Coded: Agent Orange / Editor Green */}
           <TouchableOpacity
             style={styles.slotBtn}
             onPress={handleSwitchMode}
@@ -373,7 +379,7 @@ export function FloatingTabBar({
             accessibilityLabel={isEditor ? 'Switch to Agent Mode' : 'Switch to Editor Mode'}
           >
             {activeSlot !== 2 && (
-              <Ionicons name="swap-horizontal" size={23} color="#CBD5E1" />
+              <Ionicons name="swap-horizontal" size={24} color={switchModeColor} />
             )}
           </TouchableOpacity>
 
