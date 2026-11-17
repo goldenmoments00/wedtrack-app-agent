@@ -195,6 +195,19 @@ export function FloatingTabBar({
         </Animated.View>
       )}
 
+      {/* Ambient Bottom Gradient Scrim: softly fades scrolling cards before they reach the dock */}
+      <LinearGradient
+        colors={[
+          'rgba(248, 249, 250, 0)',
+          'rgba(248, 249, 250, 0.65)',
+          'rgba(248, 249, 250, 0.92)',
+          '#F8F9FA',
+        ]}
+        locations={[0, 0.4, 0.75, 1.0]}
+        style={styles.bottomScrim}
+        pointerEvents="none"
+      />
+
       {/* Floating Island Dock Container */}
       <View
         style={[
@@ -213,7 +226,7 @@ export function FloatingTabBar({
         <View style={styles.dockPill}>
           {/* Native Hardware Blur Effect */}
           <BlurView
-            intensity={85}
+            intensity={100}
             tint="light"
             style={StyleSheet.absoluteFill}
           />
@@ -221,11 +234,11 @@ export function FloatingTabBar({
           {/* Luminous Translucent Porcelain Glass Sheen */}
           <LinearGradient
             colors={[
-              'rgba(255, 255, 255, 0.90)',
-              'rgba(255, 255, 255, 0.74)',
-              'rgba(248, 250, 252, 0.68)',
+              'rgba(255, 255, 255, 0.96)',
+              'rgba(255, 255, 255, 0.88)',
+              'rgba(248, 250, 252, 0.84)',
             ]}
-            locations={[0, 0.55, 1.0]}
+            locations={[0, 0.5, 1.0]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -404,6 +417,14 @@ export function FloatingTabBar({
 }
 
 const styles = StyleSheet.create({
+  bottomScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
+    zIndex: 998,
+  },
   dockContainer: {
     position: 'absolute',
     zIndex: 999,
@@ -412,23 +433,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 32,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.90)',
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     overflow: 'hidden',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 16,
   },
   specularRim: {
     position: 'absolute',
     top: 0,
-    left: 20,
-    right: 20,
-    height: 1.2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    left: 16,
+    right: 16,
+    height: 1.5,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.95,
   },
   floatingCircle: {
     position: 'absolute',
