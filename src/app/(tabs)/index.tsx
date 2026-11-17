@@ -1002,7 +1002,7 @@ export default function TabIndexScreen() {
               {/* Bottom row: Next Event highlight banner */}
               {nextShoot && (
                 <TouchableOpacity
-                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 68 }]}
+                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 74 }]}
                   onPress={() => router.push(`/events/${nextShoot.id}`)}
                   activeOpacity={0.85}
                 >
@@ -1025,10 +1025,6 @@ export default function TabIndexScreen() {
                     <Text style={styles.freshHeroNextVenue} numberOfLines={1}>
                       {nextShoot.venueName || 'Melaghar Lakeview'}
                     </Text>
-                  </View>
-
-                  <View style={styles.freshHeroNextBtn}>
-                    <Ionicons name="arrow-forward" size={17} color="#FF5500" />
                   </View>
                 </TouchableOpacity>
               )}
@@ -2766,7 +2762,7 @@ const styles = StyleSheet.create({
   },
   heroHoveringMascot: {
     position: 'absolute',
-    bottom: -12,
+    bottom: -20,
     right: 14,
     zIndex: 999,
   },
@@ -2818,19 +2814,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
-  freshHeroNextBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
 
   /* Slim Icon-Only Stats Styles with Tap-to-Reveal */
   slimStatsWrapper: {
-    marginTop: 18,
+    marginTop: 22,
     marginBottom: 6,
     position: 'relative',
     alignItems: 'center',
