@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
@@ -41,9 +42,17 @@ export function FloatingTabBar({
   const isAgent = workspace === 'SHOOTS';
   const isEditor = workspace === 'EDITING';
 
-  // Screen width measurement
+  // Floating Dock Layout Measurements
+  const dockHeight = 62;
+  const dockMarginH = 16;
+  const dockPaddingH = 8;
+  const circleSize = 44;
+  const circleRadius = circleSize / 2;
+  const dockBottom = Math.max(insets.bottom, 12) + 8;
+
+  // Screen width measurement: bar width is screen width minus margins
   const screenWidth = Dimensions.get('window').width;
-  const [barWidth, setBarWidth] = useState(screenWidth);
+  const [barWidth, setBarWidth] = useState(screenWidth - dockMarginH * 2);
 
   // Calculate active slot based on workspace and current route
   const getSlotFromRoute = (routeName?: string, isEditorMode?: boolean) => {
@@ -79,31 +88,24 @@ export function FloatingTabBar({
   // Persona Switcher modal
   const [hubVisible, setHubVisible] = useState(false);
 
-  // Slot calculations: 5 evenly spaced slots across screen
-  const slotWidth = barWidth / 5;
-  const getSlotCenterX = (slot: number) => slotWidth * (slot + 0.5);
+  // Slot calculations: 5 evenly spaced slots across the floating pill with padding
+  const usableWidth = barWidth - dockPaddingH * 2;
+  const slotWidth = usableWidth / 5;
+  const getSlotCenterX = (slot: number) => dockPaddingH + slotWidth * (slot + 0.5);
 
-  // Animated X position for the liquid notch and floating circle
+  // Animated X position for the floating active circle
   const notchAnim = useRef(new Animated.Value(getSlotCenterX(activeSlot))).current;
-  const [currentNotchX, setCurrentNotchX] = useState(getSlotCenterX(activeSlot));
 
   useEffect(() => {
     const targetX = getSlotCenterX(activeSlot);
     Animated.spring(notchAnim, {
       toValue: targetX,
-      damping: 18,
+      damping: 20,
       mass: 0.7,
-      stiffness: 170,
+      stiffness: 180,
       useNativeDriver: false,
     }).start();
   }, [activeSlot, barWidth]);
-
-  useEffect(() => {
-    const listenerId = notchAnim.addListener(({ value }) => {
-      setCurrentNotchX(value);
-    });
-    return () => notchAnim.removeListener(listenerId);
-  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -153,27 +155,6 @@ export function FloatingTabBar({
     }
   };
 
-  // Dimensions & Pure Liquid Notch SVG Path
-  const totalBarHeight = 68 + Math.max(insets.bottom, 12);
-  const topY = 18;
-  const scoopDepth = 48;
-  const scoopSpan = 38; // half-span of scoop
-
-  const leftShoulder = currentNotchX - scoopSpan;
-  const rightShoulder = currentNotchX + scoopSpan;
-
-  // Mathematically smooth Bézier liquid scoop cutout
-  const liquidPath = `
-    M 0 ${topY}
-    L ${leftShoulder} ${topY}
-    C ${leftShoulder + 12} ${topY}, ${currentNotchX - 20} ${scoopDepth}, ${currentNotchX} ${scoopDepth}
-    C ${currentNotchX + 20} ${scoopDepth}, ${rightShoulder - 12} ${topY}, ${rightShoulder} ${topY}
-    L ${barWidth} ${topY}
-    L ${barWidth} ${totalBarHeight + 20}
-    L 0 ${totalBarHeight + 20}
-    Z
-  `;
-
   // Determine active icon for floating circular button
   let activeIcon: keyof typeof Ionicons.glyphMap = 'apps';
   if (isEditor) {
@@ -190,7 +171,7 @@ export function FloatingTabBar({
     else if (activeSlot === 4) activeIcon = 'person';
   }
 
-  // Saturated Vibrant Orange Color (100% matching user reference in orange)
+  // Saturated Vibrant Orange Color
   const vibrantOrange = '#FF5500';
 
   return (
@@ -202,7 +183,7 @@ export function FloatingTabBar({
             styles.toastContainer,
             {
               opacity: toastFade,
-              bottom: totalBarHeight + 16,
+              bottom: dockBottom + dockHeight + 16,
               backgroundColor: '#1E2530',
               borderColor: vibrantOrange,
             },
@@ -214,40 +195,62 @@ export function FloatingTabBar({
         </Animated.View>
       )}
 
-      {/* Navigation Dock Container */}
+      {/* Floating Island Dock Container */}
       <View
-        style={[styles.dockContainer, { height: totalBarHeight + 18 }]}
+        style={[
+          styles.dockContainer,
+          {
+            left: dockMarginH,
+            right: dockMarginH,
+            bottom: dockBottom,
+            height: dockHeight,
+          },
+        ]}
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         pointerEvents="box-none"
       >
-        {/* Solid Pure White Bar with Dynamic Fluid Cutout Notch */}
-        <Svg
-          width={barWidth}
-          height={totalBarHeight + 20}
-          style={StyleSheet.absoluteFill}
-        >
-          <Path
-            d={liquidPath}
-            fill="#FFFFFF"
+        {/* Frosted Glass Rounded Capsule Pill */}
+        <View style={styles.dockPill}>
+          {/* Native Hardware Blur Effect */}
+          <BlurView
+            intensity={85}
+            tint="light"
+            style={StyleSheet.absoluteFill}
           />
-        </Svg>
 
-        {/* Floating Vibrant Orange Circular Button in the Notch */}
+          {/* Luminous Translucent Porcelain Glass Sheen */}
+          <LinearGradient
+            colors={[
+              'rgba(255, 255, 255, 0.90)',
+              'rgba(255, 255, 255, 0.74)',
+              'rgba(248, 250, 252, 0.68)',
+            ]}
+            locations={[0, 0.55, 1.0]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Optical Glass Specular Rim Highlight */}
+          <View style={styles.specularRim} />
+        </View>
+
+        {/* Floating Radiant Orange Circular Button gliding between slots */}
         <Animated.View
           style={[
             styles.floatingCircle,
             {
-              left: Animated.subtract(notchAnim, 24),
-              top: 2,
+              left: Animated.subtract(notchAnim, circleRadius),
+              top: (dockHeight - circleSize) / 2,
             },
           ]}
           pointerEvents="none"
         >
-          <Ionicons name={activeIcon} size={25} color="#FFFFFF" />
+          <Ionicons name={activeIcon} size={22} color="#FFFFFF" />
         </Animated.View>
 
         {/* Interactive Clickable Tabs Row (5 slots) */}
-        <View style={[styles.tabsRow, { top: topY, height: 50 }]}>
+        <View style={styles.tabsRow}>
           {/* Slot 0: Editor -> Orders / Agent -> Events */}
           <TouchableOpacity
             style={styles.slotBtn}
@@ -259,8 +262,8 @@ export function FloatingTabBar({
             {activeSlot !== 0 && (
               <Ionicons
                 name={isEditor ? 'document-text-outline' : 'apps-outline'}
-                size={23}
-                color="#9E9EA7"
+                size={22}
+                color="#64748B"
               />
             )}
           </TouchableOpacity>
@@ -276,8 +279,8 @@ export function FloatingTabBar({
             {activeSlot !== 1 && (
               <Ionicons
                 name={isEditor ? 'briefcase-outline' : 'list-outline'}
-                size={24}
-                color="#9E9EA7"
+                size={23}
+                color="#64748B"
               />
             )}
           </TouchableOpacity>
@@ -297,7 +300,7 @@ export function FloatingTabBar({
             accessibilityLabel={isEditor ? 'Switch to Agent Mode' : 'Switch to Editor Mode'}
           >
             {activeSlot !== 2 && (
-              <Ionicons name="swap-horizontal" size={24} color="#9E9EA7" />
+              <Ionicons name="swap-horizontal" size={23} color="#64748B" />
             )}
           </TouchableOpacity>
 
@@ -312,8 +315,8 @@ export function FloatingTabBar({
             {activeSlot !== 3 && (
               <Ionicons
                 name={isEditor ? 'wallet-outline' : 'calendar-outline'}
-                size={23}
-                color="#9E9EA7"
+                size={22}
+                color="#64748B"
               />
             )}
           </TouchableOpacity>
@@ -327,14 +330,9 @@ export function FloatingTabBar({
             accessibilityLabel="Profile"
           >
             {activeSlot !== 4 && (
-              <Ionicons name="person-outline" size={23} color="#9E9EA7" />
+              <Ionicons name="person-outline" size={22} color="#64748B" />
             )}
           </TouchableOpacity>
-        </View>
-
-        {/* Clean Native Home Indicator Bar */}
-        <View style={[styles.homeIndicatorWrapper, { bottom: Math.max(insets.bottom - 4, 8) }]}>
-          <View style={styles.homeIndicator} />
         </View>
       </View>
 
@@ -408,32 +406,54 @@ export function FloatingTabBar({
 const styles = StyleSheet.create({
   dockContainer: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     zIndex: 999,
+  },
+  dockPill: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  specularRim: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   floatingCircle: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FF5500',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,
     shadowColor: '#FF5500',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowOpacity: 0.42,
+    shadowRadius: 9,
     elevation: 8,
   },
   tabsRow: {
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
     zIndex: 1000,
   },
   slotBtn: {
@@ -441,19 +461,6 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  homeIndicatorWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 1002,
-  },
-  homeIndicator: {
-    width: 134,
-    height: 4.5,
-    borderRadius: 2.25,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
 
   /* Toast */

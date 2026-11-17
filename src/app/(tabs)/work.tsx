@@ -1,35 +1,38 @@
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-  Linking,
-} from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Button } from '@/components/common/button';
+import { DemoBanner } from '@/components/common/demo-banner';
+import { MoneyView } from '@/components/common/money-view';
+import { StateView } from '@/components/common/state-view';
+import { StatusBadge, mapReviewStatusToVariant } from '@/components/common/status-badge';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
-import { DemoBanner } from '@/components/common/demo-banner';
-import { StatusBadge, mapReviewStatusToVariant } from '@/components/common/status-badge';
-import { MoneyView } from '@/components/common/money-view';
-import { Button } from '@/components/common/button';
-import { StateView } from '@/components/common/state-view';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import {
+  Linking,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabWorkScreen() {
+  const insets = useSafeAreaInsets();
   const { session, permissions } = useAuth();
   const { editingTasks, events, team } = useDemoStore();
   const { colors, typography, spacing, radii, isDark } = useTheme();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [refreshing, setRefreshing] = useState(false);
+  const [calYear, setCalYear] = useState<number>(2026);
+  const [calMonth, setCalMonth] = useState<number>(10); // 10 is November (0-indexed)
+  const [selectedDateKey, setSelectedDateKey] = useState<string>('2026-11-18');
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
     gear1: true,
     gear2: true,
@@ -49,14 +52,8 @@ export default function TabWorkScreen() {
   // AGENT WORKSPACE: ASSIGNED WORK CALENDAR (White, Orange & Green Design)
   // ----------------------------------------------------
   if (workspace === 'SHOOTS') {
-    const insets = useSafeAreaInsets();
     const agentId = session?.id || 'usr-agt-01';
     const myEvents = events.filter(e => e.assignments.some(a => a.agentId === agentId));
-
-    // Calendar navigation state (defaults to Nov 2026 & next shoot on 18 Nov)
-    const [calYear, setCalYear] = useState<number>(2026);
-    const [calMonth, setCalMonth] = useState<number>(10); // 10 is November (0-indexed)
-    const [selectedDateKey, setSelectedDateKey] = useState<string>('2026-11-18');
 
     const monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -121,8 +118,8 @@ export default function TabWorkScreen() {
 
     const handlePrevMonth = () => {
       try {
-        Haptics.selectionAsync().catch(() => {});
-      } catch {}
+        Haptics.selectionAsync().catch(() => { });
+      } catch { }
       if (calMonth === 0) {
         setCalMonth(11);
         setCalYear(prev => prev - 1);
@@ -133,8 +130,8 @@ export default function TabWorkScreen() {
 
     const handleNextMonth = () => {
       try {
-        Haptics.selectionAsync().catch(() => {});
-      } catch {}
+        Haptics.selectionAsync().catch(() => { });
+      } catch { }
       if (calMonth === 11) {
         setCalMonth(0);
         setCalYear(prev => prev + 1);
@@ -145,8 +142,8 @@ export default function TabWorkScreen() {
 
     const toggleGear = (key: string) => {
       try {
-        Haptics.selectionAsync().catch(() => {});
-      } catch {}
+        Haptics.selectionAsync().catch(() => { });
+      } catch { }
       setChecklist(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
@@ -340,8 +337,8 @@ export default function TabWorkScreen() {
                     ]}
                     onPress={() => {
                       try {
-                        Haptics.selectionAsync().catch(() => {});
-                      } catch {}
+                        Haptics.selectionAsync().catch(() => { });
+                      } catch { }
                       setSelectedDateKey(dayItem.dateKey);
                       // If user clicked leading/trailing month date, jump to that month
                       const parts = dayItem.dateKey.split('-');
@@ -443,8 +440,8 @@ export default function TabWorkScreen() {
                 style={styles.calJumpToNextBtn}
                 onPress={() => {
                   try {
-                    Haptics.selectionAsync().catch(() => {});
-                  } catch {}
+                    Haptics.selectionAsync().catch(() => { });
+                  } catch { }
                   setSelectedDateKey('2026-11-18');
                   setCalMonth(10);
                   setCalYear(2026);
