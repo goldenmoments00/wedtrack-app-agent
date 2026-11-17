@@ -1002,7 +1002,7 @@ export default function TabIndexScreen() {
               {/* Bottom row: Next Event highlight banner */}
               {nextShoot && (
                 <TouchableOpacity
-                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 56 }]}
+                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 68 }]}
                   onPress={() => router.push(`/events/${nextShoot.id}`)}
                   activeOpacity={0.85}
                 >
@@ -1132,7 +1132,7 @@ export default function TabIndexScreen() {
                   >
                     <Ionicons
                       name={item.icon as any}
-                      size={20}
+                      size={15}
                       color={item.color}
                     />
                   </TouchableOpacity>
@@ -2766,7 +2766,7 @@ const styles = StyleSheet.create({
   },
   heroHoveringMascot: {
     position: 'absolute',
-    bottom: -14,
+    bottom: -12,
     right: 14,
     zIndex: 999,
   },
@@ -2830,8 +2830,8 @@ const styles = StyleSheet.create({
 
   /* Slim Icon-Only Stats Styles with Tap-to-Reveal */
   slimStatsWrapper: {
-    marginTop: 14,
-    marginBottom: 4,
+    marginTop: 18,
+    marginBottom: 6,
     position: 'relative',
     alignItems: 'center',
   },
@@ -2861,20 +2861,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    gap: 10,
+    gap: 8,
   },
   slimStatIconBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 16,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
 
   /* Section Header */
