@@ -124,7 +124,9 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
 
   // 1. One Click: Normal and common greetings / tips
   const triggerSingleTap = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {}
     const msg = getRandomRobotMessage(category || 'welcome', historyRef.current);
     historyRef.current.push(msg.id);
     if (historyRef.current.length > 10) historyRef.current.shift();
@@ -143,7 +145,9 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
 
   // 2. Double Click: Action reaction
   const triggerDoubleTap = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    } catch {}
 
     // Dynamic bounce pop on action
     Animated.sequence([
@@ -198,7 +202,9 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
 
   // 3. Long Press: Open Pre-Shoot Briefing
   const handleLongPress = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
     if (singleTapTimerRef.current) {
       clearTimeout(singleTapTimerRef.current);
       singleTapTimerRef.current = null;
@@ -350,32 +356,62 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
             <View style={[styles.antennaStick, { width: 4 * scale, height: 7 * scale }]} />
           </View>
 
-          {/* 2. Ears */}
-          <View style={[styles.earLeft, { width: 8 * scale, height: 26 * scale, left: 4 * scale, top: 26 * scale }]} />
-          <View style={[styles.earRight, { width: 8 * scale, height: 26 * scale, right: 4 * scale, top: 26 * scale }]} />
-
-          {/* 3. Floating Arms */}
+          {/* 2. Ears (Curved Orange Headphone Cups matching reference) */}
           <View
             style={[
-              styles.armLeft,
+              styles.earLeft,
               {
-                width: 26 * scale,
-                height: 14 * scale,
-                left: -8 * scale,
-                top: 56 * scale,
-                transform: [{ rotate: '-18deg' }],
+                width: 13 * scale,
+                height: 32 * scale,
+                left: 2 * scale,
+                top: 30 * scale,
+                borderTopLeftRadius: 16 * scale,
+                borderBottomLeftRadius: 16 * scale,
+                borderTopRightRadius: 6 * scale,
+                borderBottomRightRadius: 6 * scale,
               },
             ]}
           />
           <View
             style={[
-              styles.armRight,
+              styles.earRight,
               {
-                width: 26 * scale,
-                height: 14 * scale,
-                right: -8 * scale,
-                top: 56 * scale,
-                transform: [{ rotate: '18deg' }],
+                width: 13 * scale,
+                height: 32 * scale,
+                right: 2 * scale,
+                top: 30 * scale,
+                borderTopRightRadius: 16 * scale,
+                borderBottomRightRadius: 16 * scale,
+                borderTopLeftRadius: 6 * scale,
+                borderBottomLeftRadius: 6 * scale,
+              },
+            ]}
+          />
+
+          {/* 3. Floating Hands (Detached Angled Capsules behind head outline matching reference) */}
+          <View
+            style={[
+              styles.handLeft,
+              {
+                width: 36 * scale,
+                height: 15 * scale,
+                borderRadius: 8 * scale,
+                left: -14 * scale,
+                top: 66 * scale,
+                transform: [{ rotate: '-25deg' }],
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.handRight,
+              {
+                width: 36 * scale,
+                height: 15 * scale,
+                borderRadius: 8 * scale,
+                right: -14 * scale,
+                top: 66 * scale,
+                transform: [{ rotate: '25deg' }],
               },
             ]}
           />
@@ -502,42 +538,36 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
 
-  /* Ears */
+  /* Ears (Headphone Ear Cups) */
   earLeft: {
     position: 'absolute',
     backgroundColor: '#F97316',
-    borderWidth: 2,
+    borderWidth: 2.2,
     borderColor: '#1E1E2D',
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-    zIndex: 5,
+    zIndex: 10,
   },
   earRight: {
     position: 'absolute',
     backgroundColor: '#F97316',
-    borderWidth: 2,
+    borderWidth: 2.2,
     borderColor: '#1E1E2D',
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-    zIndex: 5,
+    zIndex: 10,
   },
 
-  /* Floating Arms */
-  armLeft: {
+  /* Floating Hands */
+  handLeft: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
-    borderWidth: 2,
+    borderWidth: 2.2,
     borderColor: '#1E1E2D',
-    borderRadius: 10,
-    zIndex: 25,
+    zIndex: 12,
   },
-  armRight: {
+  handRight: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
-    borderWidth: 2,
+    borderWidth: 2.2,
     borderColor: '#1E1E2D',
-    borderRadius: 10,
-    zIndex: 25,
+    zIndex: 12,
   },
 
   /* Head */

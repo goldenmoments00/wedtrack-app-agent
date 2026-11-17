@@ -115,7 +115,9 @@ export function FloatingTabBar({
   };
 
   const handleSwitchMode = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    } catch {}
     setActiveSlot(2);
 
     if (isAgent) {
@@ -136,7 +138,9 @@ export function FloatingTabBar({
   };
 
   const navigateTo = (routeName: string, slotIndex: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {}
     setActiveSlot(slotIndex);
 
     const targetRoute = state.routes.find((r: any) => r.name === routeName);
@@ -312,7 +316,9 @@ export function FloatingTabBar({
             style={styles.slotBtn}
             onPress={handleSwitchMode}
             onLongPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+              } catch {}
               setHubVisible(true);
             }}
             activeOpacity={0.7}
