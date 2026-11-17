@@ -263,14 +263,10 @@ export default function TabOrdersScreen() {
 
           {/* 1. Frosted Glass Hero Card */}
           <View style={styles.heroCardGlass}>
-            {/* Frosted Glass Luxe Gradient Base */}
+            {/* Radiant Orange Gradient Base matching Calfo fresh design system */}
             <LinearGradient
-              colors={
-                isDark
-                  ? ['rgba(255, 115, 30, 0.48)', 'rgba(234, 88, 12, 0.28)', 'rgba(38, 22, 28, 0.68)', 'rgba(18, 12, 16, 0.88)']
-                  : ['rgba(255, 130, 50, 0.35)', 'rgba(251, 146, 60, 0.22)', 'rgba(255, 255, 255, 0.85)']
-              }
-              locations={isDark ? [0, 0.32, 0.68, 1.0] : [0, 0.4, 1.0]}
+              colors={['#FF5500', '#FF6E1A', '#FF8533']}
+              locations={[0, 0.45, 1.0]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -1449,7 +1445,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.28)',
-    backgroundColor: 'rgba(24, 16, 20, 0.65)',
+    backgroundColor: '#FF5500',
     shadowColor: '#FF5500',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,

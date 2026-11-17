@@ -4,9 +4,9 @@ import { spacing, radii } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const colors: ColorPalette = isDark ? darkColors : lightColors;
+  // Fresh color theory: Default to luminous clean fresh light mode per user design system
+  const isDark = false;
+  const colors: ColorPalette = lightColors;
 
   return {
     isDark,

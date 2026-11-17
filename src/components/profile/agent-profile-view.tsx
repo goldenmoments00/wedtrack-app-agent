@@ -57,22 +57,22 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         badgeText: '#F47730',
       }
     : {
-        bg: '#F9F4EE',                 // Warm Creamy Linen Paper (sampled #F9F4EE)
-        bgCard: '#FFFFFF',             // Pure White Card Surface (sampled #FFFFFF)
-        bgSubtle: '#FAF4ED',           // Soft Warm Pill Surface (sampled #FAF2EA)
-        border: '#E8E2D9',             // Warm Soft Divider Line (sampled #E8E2D9)
-        borderCard: '#EDE5DC',         // Card Outer Border
-        accent: '#AB4831',             // Rustic Burnt Terracotta Brick (sampled #AB4831 / #B2604B)
-        accentBox: '#F3DED5',          // Soft Warm Peach-Terracotta Tint (sampled #F3DED5)
-        accentText: '#AB4831',         // Terracotta Text
-        textPrimary: '#1F2937',        // Deep Charcoal Slate Text
-        textSecondary: '#7C7267',      // Warm Muted Gray
+        bg: '#F8F9FA',                 // Luminous clean porcelain background
+        bgCard: '#FFFFFF',             // Pure White Card Surface
+        bgSubtle: '#F3F4F6',           // Soft Warm Pill Surface
+        border: '#E5E7EB',             // Clean Soft Divider Line
+        borderCard: '#E5E7EB',         // Card Outer Border
+        accent: '#FF5500',             // Signature Calfo Radiant Orange
+        accentBox: '#FFF7ED',          // Soft Warm Peach-Orange Tint
+        accentText: '#FF5500',         // Vibrant Orange Text
+        textPrimary: '#111827',        // Deep Slate Ink Text
+        textSecondary: '#4B5563',      // Slate Gray
         textMuted: '#9CA3AF',          // Hint / Subtext
-        switchTrack: '#AB4831',        // Terracotta Switch Track
+        switchTrack: '#FF5500',        // Radiant Orange Switch Track
         switchThumb: '#FFFFFF',        // Clean White Thumb
         btnGlass: '#FFFFFF',
-        badgeBg: '#F3DED5',
-        badgeText: '#AB4831',
+        badgeBg: '#FFF7ED',
+        badgeText: '#FF5500',
       };
 
   // State for toggles and editable fields
@@ -100,17 +100,23 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
   const topAchievement = myAchievements[0];
 
   const handleToggleSound = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {}
     setSoundEnabled(prev => !prev);
   };
 
   const handleToggleStats = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {}
     setStatsMode(prev => (prev === 'PHYSICAL' ? 'CREW' : 'PHYSICAL'));
   };
 
   const handleSaveProfile = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
     if (updateProfile) {
       await updateProfile(name, phone);
     }
@@ -487,7 +493,9 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
           <TouchableOpacity
             style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle, marginTop: 8 }]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              } catch {}
               toggleMascotEnabled();
             }}
             activeOpacity={0.8}

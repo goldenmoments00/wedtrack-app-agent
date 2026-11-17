@@ -910,12 +910,8 @@ export default function TabIndexScreen() {
 
     return (
       <LinearGradient
-        colors={
-          isDark
-            ? ['#733723', '#5B2A1F', '#371F1D', '#1C181D', '#151218']
-            : ['#F7F8FA', '#F7F8FA', '#F7F8FA']
-        }
-        locations={isDark ? [0, 0.22, 0.5, 0.8, 1.0] : [0, 0.5, 1.0]}
+        colors={['#FFF5EE', '#F8F9FA', '#F8F9FA']}
+        locations={[0, 0.35, 1.0]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={styles.root}
@@ -935,17 +931,9 @@ export default function TabIndexScreen() {
           {/* 1. Fresh Top Hero Card Wrapper with Hovering Mascot */}
           <View style={styles.freshHeroCardWrapper}>
             <View style={styles.freshHeroCard}>
-              {/* Ambient blurred backdrop directly from Agent's DP */}
-              <Image
-                source={{ uri: agentAvatar }}
-                style={StyleSheet.absoluteFill}
-                blurRadius={36}
-                resizeMode="cover"
-              />
-
-              {/* Frosted Glass Overlay with dynamic gradient and specular highlights */}
+              {/* Radiant Sun-Drenched Orange Gradient matching Calfo Reference */}
               <LinearGradient
-                colors={['rgba(255, 85, 0, 0.45)', 'rgba(38, 20, 26, 0.76)', 'rgba(18, 12, 18, 0.90)']}
+                colors={['#FF5500', '#FF6E1A', '#FF8533']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -1039,7 +1027,9 @@ export default function TabIndexScreen() {
                   showBubbleByDefault={false}
                   bubbleAlign="right"
                   onLongPress={() => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    try {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    } catch {}
                     setPreShootDrawerVisible(true);
                   }}
                 />
@@ -2663,12 +2653,17 @@ const styles = StyleSheet.create({
   freshHeroNextBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 10,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
   },
   heroHoveringMascot: {
     position: 'absolute',
@@ -2683,7 +2678,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   freshHeroNextDateBadge: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FF5500',
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -2692,13 +2687,13 @@ const styles = StyleSheet.create({
     minWidth: 46,
   },
   freshHeroNextDateNum: {
-    color: '#FF5500',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
     lineHeight: 18,
   },
   freshHeroNextDateMonth: {
-    color: '#FF5500',
+    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -2707,19 +2702,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   freshHeroNextTag: {
-    color: '#FED7AA',
+    color: '#FF5500',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   freshHeroNextTitle: {
-    color: '#FFFFFF',
+    color: '#111827',
     fontSize: 13,
     fontWeight: '800',
     marginTop: 1,
   },
   freshHeroNextVenue: {
-    color: 'rgba(255, 255, 255, 0.82)',
+    color: '#64748B',
     fontSize: 11,
     fontWeight: '500',
     marginTop: 1,

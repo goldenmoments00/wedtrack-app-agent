@@ -86,7 +86,9 @@ export const PreShootDrawer: React.FC<PreShootDrawerProps> = ({
   });
 
   const toggleItem = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch {}
     setCheckedItems(prev => ({
       ...prev,
       [id]: !prev[id],
@@ -94,14 +96,18 @@ export const PreShootDrawer: React.FC<PreShootDrawerProps> = ({
   };
 
   const handleCall = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    } catch {}
     if (clientPhone) {
       Linking.openURL(`tel:${clientPhone}`);
     }
   };
 
   const handleComplete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
     onClose();
   };
 

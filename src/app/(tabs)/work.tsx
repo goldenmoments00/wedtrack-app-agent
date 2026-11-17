@@ -120,7 +120,9 @@ export default function TabWorkScreen() {
     const shootsOnSelectedDate = myEvents.filter(e => e.startTime.startsWith(selectedDateKey));
 
     const handlePrevMonth = () => {
-      Haptics.selectionAsync();
+      try {
+        Haptics.selectionAsync().catch(() => {});
+      } catch {}
       if (calMonth === 0) {
         setCalMonth(11);
         setCalYear(prev => prev - 1);
@@ -130,7 +132,9 @@ export default function TabWorkScreen() {
     };
 
     const handleNextMonth = () => {
-      Haptics.selectionAsync();
+      try {
+        Haptics.selectionAsync().catch(() => {});
+      } catch {}
       if (calMonth === 11) {
         setCalMonth(0);
         setCalYear(prev => prev + 1);
@@ -140,7 +144,9 @@ export default function TabWorkScreen() {
     };
 
     const toggleGear = (key: string) => {
-      Haptics.selectionAsync();
+      try {
+        Haptics.selectionAsync().catch(() => {});
+      } catch {}
       setChecklist(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
@@ -192,10 +198,10 @@ export default function TabWorkScreen() {
         >
           {/* Header Bar */}
           <View style={{ marginBottom: 14 }}>
-            <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.2 }}>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: isDark ? '#FFFFFF' : '#111827', letterSpacing: 0.2 }}>
               Assigned Work Calendar
             </Text>
-            <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 2 }}>
+            <Text style={{ fontSize: 12, color: isDark ? 'rgba(255, 255, 255, 0.75)' : '#6B7280', marginTop: 2 }}>
               Tap any date to inspect call sheet, crew & agreed pay
             </Text>
           </View>
@@ -333,7 +339,9 @@ export default function TabWorkScreen() {
                       },
                     ]}
                     onPress={() => {
-                      Haptics.selectionAsync();
+                      try {
+                        Haptics.selectionAsync().catch(() => {});
+                      } catch {}
                       setSelectedDateKey(dayItem.dateKey);
                       // If user clicked leading/trailing month date, jump to that month
                       const parts = dayItem.dateKey.split('-');
@@ -434,7 +442,9 @@ export default function TabWorkScreen() {
               <TouchableOpacity
                 style={styles.calJumpToNextBtn}
                 onPress={() => {
-                  Haptics.selectionAsync();
+                  try {
+                    Haptics.selectionAsync().catch(() => {});
+                  } catch {}
                   setSelectedDateKey('2026-11-18');
                   setCalMonth(10);
                   setCalYear(2026);
