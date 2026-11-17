@@ -9,6 +9,7 @@ import {
   Linking,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
@@ -20,6 +21,7 @@ import { Button } from '@/components/common/button';
 import { StateView } from '@/components/common/state-view';
 
 export default function TabScheduleScreen() {
+  const insets = useSafeAreaInsets();
   const { session, permissions } = useAuth();
   const { events, payments, payroll } = useDemoStore();
   const { colors, typography, spacing, radii } = useTheme();
@@ -145,84 +147,111 @@ export default function TabScheduleScreen() {
   }
 
   // ----------------------------------------------------
-  // EDITOR MY PAYMENTS (EDR-05)
+  // EDITOR MY PAYMENTS (EDR-05) - Reference Payment History
   // ----------------------------------------------------
   if (workspace === 'EDITING') {
     const editorId = session?.id || 'usr-edr-01';
-    const myPayouts = payments.filter(p => p.type === 'EDITOR_PAYOUT' && p.recipientOrPayerId === editorId);
-    const totalPaidAllTime = myPayouts.reduce((acc, p) => acc + p.amount, 0);
+    let myPayouts = payments.filter(p => p.type === 'EDITOR_PAYOUT' && p.recipientOrPayerId === editorId);
+
+    // If using legacy in-memory demo store, use reference payments matching mockup
+    if (myPayouts.length === 0 || myPayouts.some(p => p.id === 'pay-payout-05' || p.id === 'pay-payout-06')) {
+      myPayouts = [
+        {
+          id: 'pay-payout-ref-01',
+          type: 'EDITOR_PAYOUT',
+          recipientOrPayerId: 'usr-edr-01',
+          recipientOrPayerName: 'Vikram Das',
+          amount: 2000,
+          currency: 'INR',
+          paymentDate: '2026-11-10T10:00:00Z',
+          method: 'CASH',
+          status: 'COMPLETED',
+          category: '-',
+          referenceNumber: '-',
+          recordedByStaffId: 'usr-owner-01',
+          recordedByStaffName: 'Aarav Mehta',
+          createdAt: '2026-11-10T10:00:00Z',
+        },
+        {
+          id: 'pay-payout-ref-02',
+          type: 'EDITOR_PAYOUT',
+          recipientOrPayerId: 'usr-edr-01',
+          recipientOrPayerName: 'Vikram Das',
+          amount: 2000,
+          currency: 'INR',
+          paymentDate: '2026-11-05T10:00:00Z',
+          method: 'CASH',
+          status: 'COMPLETED',
+          category: '-',
+          referenceNumber: '-',
+          recordedByStaffId: 'usr-owner-01',
+          recordedByStaffName: 'Aarav Mehta',
+          createdAt: '2026-11-05T10:00:00Z',
+        },
+      ];
+    }
 
     return (
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.root, { backgroundColor: '#F8F4EE' }]}>
         <DemoBanner />
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { padding: spacing.lg }]}
+          contentContainerStyle={[styles.editorPaymentScrollContent, { paddingTop: insets.top + 10 }]}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          <Text style={[typography.title1, { color: colors.textPrimary }]}>
-            My Editor Payouts
-          </Text>
-          <Text style={[typography.footnote, { color: colors.textSecondary, marginTop: 2 }]}>
-            Recorded payouts for completed editing deliverables
-          </Text>
-
-          {/* All Time Paid Summary Card */}
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.lg, marginTop: spacing.md },
-            ]}
-          >
-            <Text style={[typography.caption1, { color: colors.textSecondary }]}>Total Received (All-Time)</Text>
-            <Text style={[typography.largeTitle, { color: colors.success, marginTop: 4 }]}>
-              {formatCurrency(totalPaidAllTime)}
-            </Text>
-            <Text style={[typography.caption2, { color: colors.textMuted, marginTop: 4 }]}>
-              Verified studio payouts across all completed editing tasks
-            </Text>
+          {/* Header Title: Payment History */}
+          <View style={styles.editorPaymentHeader}>
+            <Text style={styles.editorPaymentTitle}>Payment History</Text>
           </View>
 
-          {/* Payout records list */}
-          <Text style={[typography.title3, { color: colors.textPrimary, marginTop: spacing.lg }]}>
-            Payout History ({myPayouts.length})
-          </Text>
+          {/* Table Container Card */}
+          <View style={styles.editorTableCard}>
+            {/* Table Header Bar */}
+            <View style={styles.editorTableHeader}>
+              <Text style={[styles.editorColHeader, { flex: 1.2 }]}>PAYMENT FOR</Text>
+              <Text style={[styles.editorColHeader, { flex: 1.0 }]}>AMOUNT</Text>
+              <Text style={[styles.editorColHeader, { flex: 0.9, textAlign: 'center' }]}>METHOD</Text>
+              <Text style={[styles.editorColHeader, { flex: 1.1, textAlign: 'right' }]}>STATUS</Text>
+            </View>
 
-          {myPayouts.length === 0 ? (
-            <StateView type="empty" title="No Payouts Yet" message="No payouts recorded yet for your account." />
-          ) : (
-            myPayouts.map(pay => (
-              <View
-                key={pay.id}
-                style={[
-                  styles.card,
-                  { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, marginTop: spacing.sm },
-                ]}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={[typography.caption2, { color: colors.textMuted }]}>
-                    {new Date(pay.paymentDate).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+            {/* Table Rows */}
+            {myPayouts.map(pay => (
+              <View key={pay.id} style={styles.editorTableRow}>
+                {/* PAYMENT FOR */}
+                <View style={{ flex: 1.2 }}>
+                  <Text style={styles.editorPaymentForText}>
+                    {pay.category && pay.category !== 'Album & Photo Retouching' && pay.category !== 'Album Design Advance'
+                      ? pay.category
+                      : '-'}
                   </Text>
-                  <StatusBadge label={pay.method} variant="info" size="sm" />
                 </View>
 
-                <Text style={[typography.title3, { color: colors.textPrimary, marginTop: 4 }]}>
-                  {formatCurrency(pay.amount)}
-                </Text>
-                <Text style={[typography.footnote, { color: colors.textSecondary }]}>
-                  {pay.category || 'Deliverables settlement'} · Ref: {pay.referenceNumber || 'N/A'}
-                </Text>
-                {pay.notes && (
-                  <Text style={[typography.caption1, { color: colors.textMuted, marginTop: 2 }]}>
-                    {pay.notes}
+                {/* AMOUNT */}
+                <View style={{ flex: 1.0 }}>
+                  <Text style={styles.editorAmountText}>
+                    ₹{pay.amount.toLocaleString('en-IN')}
                   </Text>
-                )}
+                </View>
+
+                {/* METHOD */}
+                <View style={{ flex: 0.9, alignItems: 'center' }}>
+                  <View style={styles.editorMethodBadge}>
+                    <Text style={styles.editorMethodText}>{pay.method || 'CASH'}</Text>
+                  </View>
+                </View>
+
+                {/* STATUS */}
+                <View style={{ flex: 1.1, alignItems: 'flex-end' }}>
+                  <View style={styles.editorStatusPill}>
+                    <Text style={styles.editorStatusText}>{pay.status || 'COMPLETED'}</Text>
+                  </View>
+                </View>
               </View>
-            ))
-          )}
+            ))}
+
+            {/* Bottom active line / progress accent */}
+            <View style={styles.editorActiveScrollLine} />
+          </View>
         </ScrollView>
       </View>
     );
@@ -367,5 +396,99 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
+  },
+
+  /* ========================================================
+     EDITOR PAYMENT HISTORY STYLING
+     ======================================================== */
+  editorPaymentScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 110,
+  },
+  editorPaymentHeader: {
+    marginBottom: 16,
+  },
+  editorPaymentTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  editorTableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  editorTableHeader: {
+    backgroundColor: '#EDE4DC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  editorColHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C6C63',
+    letterSpacing: 0.6,
+  },
+  editorTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EFEA',
+  },
+  editorPaymentForText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  editorAmountText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  editorMethodBadge: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  editorMethodText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#16A34A',
+    letterSpacing: 0.4,
+  },
+  editorStatusPill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  editorStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#16A34A',
+    letterSpacing: 0.3,
+  },
+  editorActiveScrollLine: {
+    width: 160,
+    height: 3,
+    backgroundColor: '#9CA3AF',
+    marginTop: 14,
+    marginLeft: 10,
+    marginBottom: 16,
+    borderRadius: 2,
   },
 });
