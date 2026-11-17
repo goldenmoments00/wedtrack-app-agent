@@ -173,13 +173,15 @@ export default function TabScheduleScreen() {
           type: 'EDITOR_PAYOUT',
           recipientOrPayerId: 'usr-edr-01',
           recipientOrPayerName: 'Vikram Das',
+          tenantOrderNumber: '#160',
+          orderTitle: 'Bipasha & Biki',
           amount: 2000,
           currency: 'INR',
           paymentDate: '2026-11-10T10:00:00Z',
           method: 'CASH',
           status: 'COMPLETED',
-          category: '-',
-          referenceNumber: '-',
+          category: 'Video',
+          referenceNumber: 'WT-PAY-160',
           recordedByStaffId: 'usr-owner-01',
           recordedByStaffName: 'Aarav Mehta',
           createdAt: '2026-11-10T10:00:00Z',
@@ -189,13 +191,15 @@ export default function TabScheduleScreen() {
           type: 'EDITOR_PAYOUT',
           recipientOrPayerId: 'usr-edr-01',
           recipientOrPayerName: 'Vikram Das',
+          tenantOrderNumber: '#116',
+          orderTitle: 'Sushmita & Supratim',
           amount: 2000,
           currency: 'INR',
           paymentDate: '2026-11-05T10:00:00Z',
           method: 'CASH',
           status: 'COMPLETED',
-          category: '-',
-          referenceNumber: '-',
+          category: 'Highlight',
+          referenceNumber: 'WT-PAY-116',
           recordedByStaffId: 'usr-owner-01',
           recordedByStaffName: 'Aarav Mehta',
           createdAt: '2026-11-05T10:00:00Z',
@@ -205,13 +209,15 @@ export default function TabScheduleScreen() {
           type: 'EDITOR_PAYOUT',
           recipientOrPayerId: 'usr-edr-01',
           recipientOrPayerName: 'Vikram Das',
+          tenantOrderNumber: '#18',
+          orderTitle: 'Kanika & Samrat',
           amount: 6000,
           currency: 'INR',
           paymentDate: '2026-10-18T12:00:00Z',
           method: 'CASH',
           status: 'COMPLETED',
-          category: '-',
-          referenceNumber: '-',
+          category: 'Reel',
+          referenceNumber: 'WT-PAY-018',
           recordedByStaffId: 'usr-owner-01',
           recordedByStaffName: 'Aarav Mehta',
           createdAt: '2026-10-18T12:00:00Z',
@@ -221,13 +227,15 @@ export default function TabScheduleScreen() {
           type: 'EDITOR_PAYOUT',
           recipientOrPayerId: 'usr-edr-01',
           recipientOrPayerName: 'Vikram Das',
+          tenantOrderNumber: 'WT-2026-001',
+          orderTitle: 'Sharma & Verma',
           amount: 4000,
           currency: 'INR',
           paymentDate: '2026-09-22T12:00:00Z',
           method: 'CASH',
           status: 'COMPLETED',
-          category: '-',
-          referenceNumber: '-',
+          category: 'Album',
+          referenceNumber: 'WT-PAY-001',
           recordedByStaffId: 'usr-owner-01',
           recordedByStaffName: 'Aarav Mehta',
           createdAt: '2026-09-22T12:00:00Z',
@@ -336,10 +344,10 @@ export default function TabScheduleScreen() {
           <View style={styles.editorTableCard}>
             {/* Table Header Bar */}
             <View style={styles.editorTableHeader}>
-              <Text style={[styles.editorColHeader, { flex: 1.2 }]}>PAYMENT FOR</Text>
-              <Text style={[styles.editorColHeader, { flex: 1.0 }]}>AMOUNT</Text>
-              <Text style={[styles.editorColHeader, { flex: 0.9, textAlign: 'center' }]}>METHOD</Text>
-              <Text style={[styles.editorColHeader, { flex: 1.1, textAlign: 'right' }]}>STATUS</Text>
+              <Text style={[styles.editorColHeader, { flex: 1.4 }]}>PAYMENT FOR</Text>
+              <Text style={[styles.editorColHeader, { flex: 0.9 }]}>AMOUNT</Text>
+              <Text style={[styles.editorColHeader, { flex: 0.75, textAlign: 'center' }]}>METHOD</Text>
+              <Text style={[styles.editorColHeader, { flex: 1.25, textAlign: 'right' }]}>STATUS</Text>
             </View>
 
             {/* Table Rows */}
@@ -351,39 +359,77 @@ export default function TabScheduleScreen() {
                 </Text>
               </View>
             ) : (
-              filteredPayouts.map(pay => (
-                <View key={pay.id} style={styles.editorTableRow}>
-                  {/* PAYMENT FOR */}
-                  <View style={{ flex: 1.2 }}>
-                    <Text style={styles.editorPaymentForText}>
-                      {pay.category && pay.category !== 'Album & Photo Retouching' && pay.category !== 'Album Design Advance'
-                        ? pay.category
-                        : '-'}
-                    </Text>
-                  </View>
+              filteredPayouts.map(pay => {
+                const categoryLower = (pay.category || '').toLowerCase();
+                const isReel = categoryLower.includes('reel');
+                const isAlbum = categoryLower.includes('album');
+                const isHighlight = categoryLower.includes('highlight');
+                const typeLabel = isReel ? 'Reel' : isAlbum ? 'Album' : isHighlight ? 'Highlight' : 'Video';
 
-                  {/* AMOUNT */}
-                  <View style={{ flex: 1.0 }}>
-                    <Text style={styles.editorAmountText}>
-                      ₹{pay.amount.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
+                return (
+                  <View key={pay.id} style={styles.editorTableRow}>
+                    {/* PAYMENT FOR (Project Name & Type) */}
+                    <View style={{ flex: 1.4, paddingRight: 4 }}>
+                      <Text style={styles.editorPaymentProjectTitle} numberOfLines={1}>
+                        {pay.orderTitle || 'Wedding Project'}
+                      </Text>
+                      <View style={styles.editorPaymentTypeTagRow}>
+                        <View
+                          style={[
+                            styles.editorTypeBadge,
+                            isReel
+                              ? styles.editorTypeBadgeReel
+                              : isAlbum
+                              ? styles.editorTypeBadgeAlbum
+                              : isHighlight
+                              ? styles.editorTypeBadgeHighlight
+                              : styles.editorTypeBadgeVideo,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.editorTypeBadgeText,
+                              isReel
+                                ? styles.editorTypeBadgeTextReel
+                                : isAlbum
+                                ? styles.editorTypeBadgeTextAlbum
+                                : isHighlight
+                                ? styles.editorTypeBadgeTextHighlight
+                                : styles.editorTypeBadgeTextVideo,
+                            ]}
+                          >
+                            {typeLabel}
+                          </Text>
+                        </View>
+                        {pay.tenantOrderNumber && (
+                          <Text style={styles.editorPaymentIdText}>{pay.tenantOrderNumber}</Text>
+                        )}
+                      </View>
+                    </View>
 
-                  {/* METHOD */}
-                  <View style={{ flex: 0.9, alignItems: 'center' }}>
-                    <View style={styles.editorMethodBadge}>
-                      <Text style={styles.editorMethodText}>{pay.method || 'CASH'}</Text>
+                    {/* AMOUNT */}
+                    <View style={{ flex: 0.9 }}>
+                      <Text style={styles.editorAmountText}>
+                        ₹{pay.amount.toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+
+                    {/* METHOD */}
+                    <View style={{ flex: 0.75, alignItems: 'center' }}>
+                      <View style={styles.editorMethodBadge}>
+                        <Text style={styles.editorMethodText}>{pay.method || 'CASH'}</Text>
+                      </View>
+                    </View>
+
+                    {/* STATUS */}
+                    <View style={{ flex: 1.25, alignItems: 'flex-end' }}>
+                      <View style={styles.editorStatusPill}>
+                        <Text style={styles.editorStatusText}>{pay.status || 'COMPLETED'}</Text>
+                      </View>
                     </View>
                   </View>
-
-                  {/* STATUS */}
-                  <View style={{ flex: 1.1, alignItems: 'flex-end' }}>
-                    <View style={styles.editorStatusPill}>
-                      <Text style={styles.editorStatusText}>{pay.status || 'COMPLETED'}</Text>
-                    </View>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
 
             {/* Bottom active line / progress accent */}
@@ -699,7 +745,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   editorColHeader: {
     fontSize: 11,
@@ -710,10 +756,61 @@ const styles = StyleSheet.create({
   editorTableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3EFEA',
+  },
+  editorPaymentProjectTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  editorPaymentTypeTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
+  },
+  editorTypeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  editorTypeBadgeVideo: {
+    backgroundColor: '#FFE4E8',
+  },
+  editorTypeBadgeReel: {
+    backgroundColor: '#F3E8FF',
+  },
+  editorTypeBadgeHighlight: {
+    backgroundColor: '#FEF3C7',
+  },
+  editorTypeBadgeAlbum: {
+    backgroundColor: '#E0F2FE',
+  },
+  editorTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  editorTypeBadgeTextVideo: {
+    color: '#E11D48',
+  },
+  editorTypeBadgeTextReel: {
+    color: '#7E22CE',
+  },
+  editorTypeBadgeTextHighlight: {
+    color: '#B45309',
+  },
+  editorTypeBadgeTextAlbum: {
+    color: '#0284C7',
+  },
+  editorPaymentIdText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8A7A72',
   },
   editorPaymentForText: {
     fontSize: 15,
@@ -742,14 +839,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#86EFAC',
     borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
   },
   editorStatusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#16A34A',
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   editorActiveScrollLine: {
     width: 160,
