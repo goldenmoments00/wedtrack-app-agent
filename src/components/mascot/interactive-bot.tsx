@@ -55,7 +55,7 @@ export const InteractiveBot: React.FC<InteractiveBotProps> = ({
   const bubbleAnim = useRef(new Animated.Value(showBubbleByDefault ? 1 : 0)).current;
 
   // Scale mapping
-  const scale = size === 'xs' ? 0.45 : size === 'sm' ? 0.72 : size === 'lg' ? 1.2 : 0.9;
+  const scale = size === 'xs' ? 0.45 : size === 'sm' ? 0.88 : size === 'lg' ? 1.25 : 0.95;
   const baseWidth = 100 * scale;
   const baseHeight = 110 * scale;
 

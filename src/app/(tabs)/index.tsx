@@ -1002,7 +1002,7 @@ export default function TabIndexScreen() {
               {/* Bottom row: Next Event highlight banner */}
               {nextShoot && (
                 <TouchableOpacity
-                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 74 }]}
+                  style={[styles.freshHeroNextBanner, mascotEnabled && { paddingRight: 88 }]}
                   onPress={() => router.push(`/events/${nextShoot.id}`)}
                   activeOpacity={0.85}
                 >
@@ -2762,8 +2762,8 @@ const styles = StyleSheet.create({
   },
   heroHoveringMascot: {
     position: 'absolute',
-    bottom: -20,
-    right: 14,
+    bottom: -24,
+    right: 10,
     zIndex: 999,
   },
   editorFloatingBot: {
@@ -2817,7 +2817,7 @@ const styles = StyleSheet.create({
 
   /* Slim Icon-Only Stats Styles with Tap-to-Reveal */
   slimStatsWrapper: {
-    marginTop: 22,
+    marginTop: 26,
     marginBottom: 6,
     position: 'relative',
     alignItems: 'center',
