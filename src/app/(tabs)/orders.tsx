@@ -786,7 +786,7 @@ export default function TabOrdersScreen() {
                           {/* When Pending: Space for put number + Submit button SIDE BY SIDE in a single row */}
                           {!isSubmitted && (
                             <View style={styles.inlineSubmitRow}>
-                              {/* Space for putting number with direct numeric input + -/+ buttons */}
+                              {/* Space for putting number (Direct numeric typing, without +- buttons) */}
                               <View
                                 style={[
                                   styles.inlineNumberBox,
@@ -796,21 +796,6 @@ export default function TabOrdersScreen() {
                                   },
                                 ]}
                               >
-                                <TouchableOpacity
-                                  style={styles.inlineStepBtn}
-                                  onPress={() => {
-                                    const val = Math.max(
-                                      0,
-                                      (parseInt(currentCount, 10) || 0) - (isPhoto ? 50 : 5)
-                                    );
-                                    setCount(String(val));
-                                  }}
-                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                                  activeOpacity={0.6}
-                                >
-                                  <Ionicons name="remove" size={16} color={isDark ? '#D1D5DB' : '#4B5563'} />
-                                </TouchableOpacity>
-
                                 <TextInput
                                   value={currentCount}
                                   onChangeText={setCount}
@@ -823,18 +808,6 @@ export default function TabOrdersScreen() {
                                     { color: isDark ? '#FFFFFF' : '#111827' },
                                   ]}
                                 />
-
-                                <TouchableOpacity
-                                  style={styles.inlineStepBtn}
-                                  onPress={() => {
-                                    const val = (parseInt(currentCount, 10) || 0) + (isPhoto ? 50 : 5);
-                                    setCount(String(val));
-                                  }}
-                                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                                  activeOpacity={0.6}
-                                >
-                                  <Ionicons name="add" size={16} color={isDark ? '#D1D5DB' : '#4B5563'} />
-                                </TouchableOpacity>
                               </View>
 
                               {/* Submit Button Side by Side in the Row */}
@@ -2010,26 +1983,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   inlineNumberBox: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
     borderWidth: 1,
     overflow: 'hidden',
     height: 44,
-  },
-  inlineStepBtn: {
-    width: 36,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    minWidth: 88,
+    paddingHorizontal: 12,
   },
   inlineNumberInput: {
-    width: 56,
+    minWidth: 64,
     height: 44,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
     paddingVertical: 0,
   },
   inlineSubmitBtn: {
