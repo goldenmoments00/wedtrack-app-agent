@@ -65,9 +65,10 @@ export default function OrderDetailScreen() {
   const isOwnerOrAdmin = session?.roles.includes('OWNER') || session?.roles.includes('ADMIN');
   const isManager = session?.roles.includes('MANAGER');
   const workspace = session?.activeWorkspace || 'OPERATIONS';
-  const isAgentView = workspace === 'SHOOTS' || (session?.roles.includes('AGENT') && !isOwnerOrAdmin && !isManager);
-  const isEditorView = workspace === 'EDITING' || (session?.roles.includes('EDITOR') && !isOwnerOrAdmin && !isManager);
-  const isAgentOrEditor = isAgentView || isEditorView;
+  const isAdminVersion = isOwnerOrAdmin && (workspace === 'OPERATIONS' || !workspace);
+  const isAgentView = workspace === 'SHOOTS' || (session?.roles.includes('AGENT') && !isAdminVersion);
+  const isEditorView = workspace === 'EDITING' || (session?.roles.includes('EDITOR') && !isAdminVersion);
+  const isAgentOrEditor = !isAdminVersion;
   const canEditBooking = isOwnerOrAdmin || (isManager && permissions.orderSections.client === 'edit');
   const canSeeMoney = permissions.money.revenue !== 'none';
   const canSeeCost = permissions.money.cost !== 'none';
@@ -314,7 +315,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleToggleReceived = (eventId: string, assignmentId: string, current: boolean) => {
-    if (isAgentOrEditor) return;
+    if (!isAdminVersion) return;
     try {
       Haptics.selectionAsync().catch(() => {});
     } catch {}
@@ -322,7 +323,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleQuickAssignmentStatus = (eventId: string, assignmentId: string, currentStatus: string) => {
-    if (isAgentOrEditor) return;
+    if (!isAdminVersion) return;
     Alert.alert('Update Assignment Status', 'Select status for this crew assignment:', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -356,7 +357,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleQuickPay = (eventId: string, assignmentId: string, currentPay: number) => {
-    if (isAgentOrEditor || !canSeeCost) return;
+    if (!isAdminVersion || !canSeeCost) return;
     setEditingAssignment({
       eventId,
       assignmentId,
@@ -369,6 +370,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleQuickCount = (eventId: string, assignmentId: string, currentCount: number) => {
+    if (!isAdminVersion) return;
     setEditingAssignment({
       eventId,
       assignmentId,
@@ -381,7 +383,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleSaveAssignmentEdit = () => {
-    if (!editingAssignment) return;
+    if (!isAdminVersion || !editingAssignment) return;
     if (editPayInput !== '') {
       const payNum = parseInt(editPayInput, 10);
       if (!isNaN(payNum)) {
@@ -401,7 +403,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleCreateEvent = () => {
-    if (isAgentOrEditor) return;
+    if (!isAdminVersion) return;
     if (!newEventTitle.trim()) {
       Alert.alert('Title Required', 'Please enter an event or ceremony name.');
       return;
@@ -433,7 +435,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleAssignCrewMember = (agentId: string) => {
-    if (isAgentOrEditor) return;
+    if (!isAdminVersion) return;
     if (!assigningCrewEventId) return;
     const payNum = parseInt(assigningPay, 10) || 0;
     assignCrew(assigningCrewEventId, agentId, assigningRole, false, payNum);
@@ -867,7 +869,7 @@ export default function OrderDetailScreen() {
               {/* Top Orange Banner: EVENTS & ASSIGNMENTS */}
               <View style={styles.refEventsHeaderBar}>
                 <Text style={styles.refEventsHeaderText}>EVENTS & ASSIGNMENTS</Text>
-                {!isAgentOrEditor && (
+                {isAdminVersion && (
                   <TouchableOpacity
                     style={styles.refAddEventBtn}
                     onPress={() => setIsAddEventModalVisible(true)}
@@ -887,14 +889,16 @@ export default function OrderDetailScreen() {
                   <Text style={styles.refEmptySubtext}>
                     Track Ashirbd, Pre-Wedding, Haldi, Wedding, Reception and crew allocations.
                   </Text>
-                  <TouchableOpacity
-                    style={[styles.refGenPipelineBtn, { backgroundColor: '#EA580C', marginTop: 14 }]}
-                    onPress={() => setIsAddEventModalVisible(true)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="add" size={15} color="#FFFFFF" />
-                    <Text style={styles.refGenPipelineText}>+ Add First Event</Text>
-                  </TouchableOpacity>
+                  {isAdminVersion && (
+                    <TouchableOpacity
+                      style={[styles.refGenPipelineBtn, { backgroundColor: '#EA580C', marginTop: 14 }]}
+                      onPress={() => setIsAddEventModalVisible(true)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="add" size={15} color="#FFFFFF" />
+                      <Text style={styles.refGenPipelineText}>+ Add First Event</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 orderEvents.map((evt, evtIdx) => {
@@ -928,7 +932,7 @@ export default function OrderDetailScreen() {
                         {evt.assignments.length === 0 ? (
                           <View style={styles.refEvtEmptyRow}>
                             <Text style={styles.refEvtEmptyText}>No assignments yet</Text>
-                            {!isAgentOrEditor && (
+                            {isAdminVersion && (
                               <TouchableOpacity
                                 style={styles.refEvtAssignBtn}
                                 onPress={() => {
@@ -975,14 +979,14 @@ export default function OrderDetailScreen() {
                                   {/* Count Pill */}
                                   <TouchableOpacity
                                     style={styles.refCountPill}
-                                    onPress={() => handleQuickCount(evt.id, asg.id, countVal)}
-                                    activeOpacity={0.7}
+                                    onPress={isAdminVersion ? () => handleQuickCount(evt.id, asg.id, countVal) : undefined}
+                                    activeOpacity={isAdminVersion ? 0.7 : 1}
                                   >
                                     <Text style={styles.refCountText}>{countVal}</Text>
                                   </TouchableOpacity>
 
-                                  {/* 3 options hidden in Agent or Editor view */}
-                                  {!isAgentOrEditor && (
+                                  {/* Section only visible in admin version, hidden in agent version */}
+                                  {isAdminVersion && (
                                     <>
                                       {/* Received Badge */}
                                       <TouchableOpacity
@@ -1060,7 +1064,7 @@ export default function OrderDetailScreen() {
               {/* Top Purple Banner: EDITING TASKS */}
               <View style={styles.refEditingHeaderBar}>
                 <Text style={styles.refEditingHeaderText}>EDITING TASKS</Text>
-                {!isAgentOrEditor && (
+                {isAdminVersion && (
                   <TouchableOpacity
                     style={styles.refAddBtn}
                     onPress={() => setIsAddDeliverableModalVisible(true)}
@@ -1081,23 +1085,25 @@ export default function OrderDetailScreen() {
                   <Text style={styles.refEmptySubtext}>
                     Track photo editing, cinematic video, reels, highlights, and album designs.
                   </Text>
-                  <View style={{ width: '100%', gap: 8, marginTop: 14 }}>
-                    <TouchableOpacity
-                      style={styles.refGenPipelineBtn}
-                      onPress={handleAutoGenerate}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="flash" size={14} color="#FFFFFF" />
-                      <Text style={styles.refGenPipelineText}>Generate Reference Pipeline</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.refAddCustomBtn}
-                      onPress={() => setIsAddDeliverableModalVisible(true)}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.refAddCustomText}>+ Add Custom Deliverable</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {isAdminVersion && (
+                    <View style={{ width: '100%', gap: 8, marginTop: 14 }}>
+                      <TouchableOpacity
+                        style={styles.refGenPipelineBtn}
+                        onPress={handleAutoGenerate}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="flash" size={14} color="#FFFFFF" />
+                        <Text style={styles.refGenPipelineText}>Generate Reference Pipeline</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.refAddCustomBtn}
+                        onPress={() => setIsAddDeliverableModalVisible(true)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.refAddCustomText}>+ Add Custom Deliverable</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ) : (
                 orderTasks.map((task, idx) => {
@@ -1120,7 +1126,7 @@ export default function OrderDetailScreen() {
                         </View>
 
                         {/* Status Dropdown Pill */}
-                        {!isAgentOrEditor ? (
+                        {isAdminVersion ? (
                           <TouchableOpacity
                             style={styles.refDropdownPill}
                             onPress={() => handleQuickStatus(task.id, task.status)}
@@ -1151,7 +1157,7 @@ export default function OrderDetailScreen() {
                       {/* Row 2: Assignee Selector (left) & Rate / Correct Rate (right) */}
                       <View style={styles.refRow2}>
                         {/* Assignee Pill */}
-                        {!isAgentOrEditor ? (
+                        {isAdminVersion ? (
                           <TouchableOpacity
                             style={styles.refAssigneePill}
                             onPress={() => setReassigningTaskId(task.id)}
@@ -1171,7 +1177,7 @@ export default function OrderDetailScreen() {
                         )}
 
                         {/* Rate / Correct Rate */}
-                        {!isAgentOrEditor && canSeeCost && (
+                        {isAdminVersion && canSeeCost && (
                           <View style={styles.refRateBox}>
                             <Text style={styles.refRateAmount}>
                               {task.cost !== undefined && task.cost > 0
@@ -1219,14 +1225,16 @@ export default function OrderDetailScreen() {
               {/* Top Teal Banner: ACTIVITIES */}
               <View style={styles.actHeaderBar}>
                 <Text style={styles.actHeaderText}>ACTIVITIES</Text>
-                <TouchableOpacity
-                  style={styles.actHeaderAddBtn}
-                  onPress={() => setIsQuickActionsModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="flash-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.actHeaderAddBtnText}>Quick Actions</Text>
-                </TouchableOpacity>
+                {isAdminVersion && (
+                  <TouchableOpacity
+                    style={styles.actHeaderAddBtn}
+                    onPress={() => setIsQuickActionsModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="flash-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.actHeaderAddBtnText}>Quick Actions</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Card Body */}
@@ -1235,13 +1243,15 @@ export default function OrderDetailScreen() {
                   /* Empty state matching media_1794941503688_14792a67.png */
                   <View style={styles.actEmptyContainer}>
                     <Text style={styles.actEmptyText}>Nothing tracked yet.</Text>
-                    <TouchableOpacity
-                      style={styles.actAddDashedBtn}
-                      onPress={() => setIsQuickActionsModalVisible(true)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actAddDashedText}>+ Add activity</Text>
-                    </TouchableOpacity>
+                    {isAdminVersion && (
+                      <TouchableOpacity
+                        style={styles.actAddDashedBtn}
+                        onPress={() => setIsQuickActionsModalVisible(true)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.actAddDashedText}>+ Add activity</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
                   /* Tracked Activities List */
@@ -1282,13 +1292,15 @@ export default function OrderDetailScreen() {
                                 </Text>
                               </View>
 
-                              <TouchableOpacity
-                                onPress={() => handleDeleteActivity(act.id, act.title)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                style={{ marginLeft: 6 }}
-                              >
-                                <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
-                              </TouchableOpacity>
+                              {isAdminVersion && (
+                                <TouchableOpacity
+                                  onPress={() => handleDeleteActivity(act.id, act.title)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={{ marginLeft: 6 }}
+                                >
+                                  <Ionicons name="trash-outline" size={16} color="#9CA3AF" />
+                                </TouchableOpacity>
+                              )}
                             </View>
                           </View>
 
@@ -1360,15 +1372,17 @@ export default function OrderDetailScreen() {
                     })}
 
                     {/* Bottom Add Activity dashed button */}
-                    <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
-                      <TouchableOpacity
-                        style={styles.actAddDashedBtn}
-                        onPress={() => setIsQuickActionsModalVisible(true)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.actAddDashedText}>+ Add activity</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {isAdminVersion && (
+                      <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+                        <TouchableOpacity
+                          style={styles.actAddDashedBtn}
+                          onPress={() => setIsQuickActionsModalVisible(true)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.actAddDashedText}>+ Add activity</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
