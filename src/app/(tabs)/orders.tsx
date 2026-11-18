@@ -722,8 +722,8 @@ export default function TabOrdersScreen() {
                         </View>
                       </TouchableOpacity>
 
-                      {/* Subtle Divider for Pending or Expanded */}
-                      {(!isSubmitted || isExpanded) && (
+                      {/* Subtle Divider: Only shown when open */}
+                      {isExpanded && (
                         <View
                           style={[
                             styles.expandedDivider,
@@ -732,8 +732,8 @@ export default function TabOrdersScreen() {
                         />
                       )}
 
-                      {/* Details Section: Always shown for Pending, or shown on tap for Submitted */}
-                      {(!isSubmitted || isExpanded) && (
+                      {/* Details Section: Only one project/event open at a time, others collapse automatically */}
+                      {isExpanded && (
                         <View style={[styles.expandedDetailsSection, { paddingTop: 6 }]}>
                           {/* Client & Order Name */}
                           <View style={styles.detailRow}>
@@ -810,7 +810,7 @@ export default function TabOrdersScreen() {
                                 />
                               </View>
 
-                              {/* Submit Button Side by Side in the Row */}
+                              {/* Submit Button Side by Side in the Row (without cloud icon) */}
                               <TouchableOpacity
                                 style={styles.inlineSubmitBtn}
                                 onPress={() =>
@@ -823,9 +823,8 @@ export default function TabOrdersScreen() {
                                 }
                                 activeOpacity={0.85}
                               >
-                                <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
                                 <Text style={styles.inlineSubmitText}>Submit</Text>
-                                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                                <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
                               </TouchableOpacity>
                             </View>
                           )}
