@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -126,10 +127,14 @@ export default function TabMoreScreen() {
             { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.md },
           ]}
         >
-          <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-            <Text style={[typography.title2, { color: colors.primaryText }]}>
-              {session?.name.charAt(0)}
-            </Text>
+          <View style={[styles.avatarCircle, { backgroundColor: colors.primary, overflow: 'hidden' }]}>
+            {session?.avatarUrl ? (
+              <Image source={{ uri: session.avatarUrl }} style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <Text style={[typography.title2, { color: colors.primaryText }]}>
+                {session?.name.charAt(0)}
+              </Text>
+            )}
           </View>
           <View style={{ flex: 1, marginLeft: spacing.md }}>
             <Text style={[typography.headline, { color: colors.textPrimary }]}>{session?.name}</Text>

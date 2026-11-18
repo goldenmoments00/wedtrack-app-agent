@@ -36,7 +36,8 @@ interface AuthContextType {
   switchDemoPersona: (personaId: string) => void;
   setMode: (mode: AppEnvironmentMode) => void;
   refreshSession: () => Promise<void>;
-  updateProfile: (name: string, phone?: string) => Promise<void>;
+  updateProfile: (name: string, phone?: string, avatarUrl?: string) => Promise<void>;
+  updateAvatar: (avatarUrl: string) => Promise<void>;
   updateStudioUpi: (upiId: string, upiName: string) => Promise<void>;
 }
 
@@ -214,13 +215,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Live refresh
   };
 
-  const updateProfile = async (name: string, phone?: string) => {
+  const updateProfile = async (name: string, phone?: string, avatarUrl?: string) => {
     if (session) {
-      setSession({
+      const updated = {
         ...session,
         name,
         phone,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+      };
+      setSession(updated);
+      if (avatarUrl) {
+        await SecureStorage.setItem(`user_avatar_${session.id}`, avatarUrl).catch(() => {});
+      }
+    }
+  };
+
+  const updateAvatar = async (avatarUrl: string) => {
+    if (session) {
+      setSession({
+        ...session,
+        avatarUrl,
       });
+      await SecureStorage.setItem(`user_avatar_${session.id}`, avatarUrl).catch(() => {});
     }
   };
 
@@ -256,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMode,
         refreshSession,
         updateProfile,
+        updateAvatar,
         updateStudioUpi,
       }}
     >

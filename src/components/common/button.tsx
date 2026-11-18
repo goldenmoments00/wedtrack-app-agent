@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  View,
   Pressable,
   Text,
   ActivityIndicator,
@@ -112,8 +113,8 @@ export function Button({
           return <ActivityIndicator color={v.text} size="small" />;
         }
         return (
-          <>
-            {icon}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            {icon ? icon : null}
             <Text
               style={[
                 size === 'sm' ? typography.footnote : typography.headline,
@@ -123,7 +124,7 @@ export function Button({
             >
               {title}
             </Text>
-          </>
+          </View>
         );
       }}
     </Pressable>

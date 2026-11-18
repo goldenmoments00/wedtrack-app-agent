@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,12 +14,54 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 import { useDemoStore } from '@/context/demo-store-context';
 import { useTheme } from '@/hooks/use-theme';
 import { AchievementBadge } from '@/components/achievements/achievement-badge';
 import { AchievementsModal } from '@/components/achievements/achievements-modal';
+import { SecureStorage } from '@/services/secure-storage';
+import { GearLockerModal, GearKitData } from './gear-locker-modal';
+
+const STUDIO_AVATAR_PRESETS = [
+  {
+    id: 'karan',
+    label: 'Studio Lead (Karan)',
+    role: 'Lead Photographer',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'aarav',
+    label: 'Studio Director (Aarav)',
+    role: 'Studio Owner',
+    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'vikram',
+    label: 'Creative Editor (Vikram)',
+    role: 'Colorist & Video Editor',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'priya',
+    label: 'Producer (Priya)',
+    role: 'Shoot Manager',
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'neha',
+    label: 'Cinematographer (Neha)',
+    role: 'Drone Specialist',
+    url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'rohan',
+    label: 'Photographer (Rohan)',
+    role: 'Portrait & Candid Lead',
+    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
+  },
+];
 
 export interface AgentProfileViewProps {
   onBack?: () => void;
@@ -28,7 +70,7 @@ export interface AgentProfileViewProps {
 
 export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewProps) {
   const insets = useSafeAreaInsets();
-  const { session, updateProfile, signOut, mode } = useAuth();
+  const { session, updateProfile, updateAvatar, signOut, mode } = useAuth();
   const { events, team, mascotEnabled, toggleMascotEnabled } = useDemoStore();
   const { isDark } = useTheme();
 
@@ -90,6 +132,105 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
   const [weight, setWeight] = useState('52');
   const [gearKit, setGearKit] = useState('Sony FX3 · 24-70 GM · 70-200 GM');
   const [upiId, setUpiId] = useState('karan.shoots@okhdfcbank');
+
+  // Display Picture (DP) State & Handlers
+  const defaultAvatar =
+    session?.avatarUrl ||
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80';
+  const [avatarUrl, setAvatarUrl] = useState<string>(defaultAvatar);
+  const [dpModalVisible, setDpModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (session?.avatarUrl) {
+      setAvatarUrl(session.avatarUrl);
+    }
+  }, [session?.avatarUrl]);
+
+  // Gear Locker State & Handlers
+  const [gearModalVisible, setGearModalVisible] = useState(false);
+  const [gearKitData, setGearKitData] = useState<GearKitData | undefined>(undefined);
+
+  useEffect(() => {
+    const loadGearKit = async () => {
+      const storedKit = await SecureStorage.getItem('agent_gear_kit_' + (session?.id || 'usr-agt-01'));
+      if (storedKit) {
+        try {
+          const parsed = JSON.parse(storedKit);
+          setGearKitData(parsed);
+        } catch {}
+      }
+      const storedSummary = await SecureStorage.getItem('agent_gear_summary_' + (session?.id || 'usr-agt-01'));
+      if (storedSummary) {
+        setGearKit(storedSummary);
+      }
+    };
+    loadGearKit();
+  }, [session?.id]);
+
+  const handleSaveGearKit = async (kit: GearKitData, summary: string) => {
+    setGearKitData(kit);
+    setGearKit(summary);
+    await SecureStorage.setItem('agent_gear_kit_' + (session?.id || 'usr-agt-01'), JSON.stringify(kit)).catch(() => {});
+    await SecureStorage.setItem('agent_gear_summary_' + (session?.id || 'usr-agt-01'), summary).catch(() => {});
+    Alert.alert('Gear Locker Updated', 'Your cameras, lenses, lighting and gear details have been saved.');
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission Required', 'Please allow photo gallery access to select a profile picture.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        await handleSaveNewAvatar(res.assets[0].uri);
+      }
+    } catch (e: any) {
+      Alert.alert('Gallery Error', e.message || 'Could not pick image.');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission Required', 'Please allow camera access to take a profile photo.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        await handleSaveNewAvatar(res.assets[0].uri);
+      }
+    } catch (e: any) {
+      Alert.alert('Camera Error', e.message || 'Could not take photo.');
+    }
+  };
+
+  const handleSaveNewAvatar = async (newUri: string) => {
+    setAvatarUrl(newUri);
+    if (updateAvatar) {
+      await updateAvatar(newUri);
+    } else if (updateProfile) {
+      await updateProfile(name, phone, newUri);
+    }
+    setDpModalVisible(false);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    Alert.alert('Profile Picture Updated', 'Your new display picture (DP) has been saved.');
+  };
 
   // Count agent events
   const agentId = session?.id || 'usr-agt-01';
@@ -206,27 +347,41 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         >
           {/* Top Row: Avatar & Name */}
           <View style={styles.heroTopRow}>
-            {/* Avatar Photo with Subtle Border & Achievement Pin near DP Bubble */}
-            <TouchableOpacity
-              style={{ width: 72, height: 72, position: 'relative' }}
-              onPress={() => setAchievementsModalVisible(true)}
-              activeOpacity={0.8}
-              accessibilityLabel="View earned achievements"
-            >
-              <View style={[styles.avatarBorder, { borderColor: themeColors.border }]}>
-                <Image
-                  source={{
-                    uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-                  }}
-                  style={styles.avatarImg}
-                />
-              </View>
-              {topAchievement && (
-                <View style={styles.dpAchievementPin}>
-                  <AchievementBadge achievement={topAchievement} size="mini" />
+            {/* Avatar Photo with Camera Edit Badge & Achievement Pin */}
+            <View style={{ width: 78, height: 78, position: 'relative' }}>
+              <TouchableOpacity
+                style={{ width: 74, height: 74 }}
+                onPress={() => setDpModalVisible(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile picture (DP)"
+              >
+                <View style={[styles.avatarBorder, { borderColor: themeColors.border }]}>
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.avatarImg}
+                  />
                 </View>
+
+                {/* Camera Edit Badge on bottom-right of DP */}
+                <View style={styles.dpCameraBadge}>
+                  <Ionicons name="camera" size={13} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Achievement Pin on Top-Right */}
+              {topAchievement && (
+                <TouchableOpacity
+                  style={styles.dpAchievementPin}
+                  onPress={() => setAchievementsModalVisible(true)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  activeOpacity={0.8}
+                  accessibilityLabel="View achievements"
+                >
+                  <AchievementBadge achievement={topAchievement} size="mini" />
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.heroInfoCol}>
               <Text style={[styles.heroNameText, { color: themeColors.textPrimary }]} numberOfLines={1}>
@@ -551,7 +706,7 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
           {/* Gear Locker */}
           <TouchableOpacity
             style={[styles.capsuleRow, { backgroundColor: themeColors.bgSubtle }]}
-            onPress={() => setActiveSubModal('GEAR')}
+            onPress={() => setGearModalVisible(true)}
             activeOpacity={0.7}
           >
             <View style={[styles.capsuleIconBox, { backgroundColor: isDark ? '#151B22' : '#EDE5DC' }]}>
@@ -740,21 +895,6 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                 </View>
               </View>
 
-              <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Primary Camera Kit</Text>
-              <TextInput
-                value={gearKit}
-                onChangeText={setGearKit}
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: themeColors.bgSubtle,
-                    borderColor: themeColors.border,
-                    color: themeColors.textPrimary,
-                  },
-                ]}
-                placeholderTextColor={themeColors.textMuted}
-              />
-
               <Text style={[styles.modalInputLabel, { color: themeColors.textSecondary }]}>Payout UPI ID</Text>
               <TextInput
                 value={upiId}
@@ -782,7 +922,7 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         </Pressable>
       </Modal>
 
-      {/* Sub Modals (Personal Info, Gear Locker, UPI) */}
+      {/* Sub Modals (Personal Info, UPI) */}
       {activeSubModal && (
         <Modal
           visible={true}
@@ -808,8 +948,6 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                 <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                   {activeSubModal === 'PERSONAL'
                     ? 'Personal Information'
-                    : activeSubModal === 'GEAR'
-                    ? 'Camera Kit & Gear Locker'
                     : 'Payout UPI Details'}
                 </Text>
                 <TouchableOpacity onPress={() => setActiveSubModal(null)}>
@@ -824,16 +962,6 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
                   <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Phone: {phone}</Text>
                   <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Studio Email: {session?.email}</Text>
                   <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Role: {session?.primaryRole} (Staff Crew)</Text>
-                </View>
-              )}
-
-              {activeSubModal === 'GEAR' && (
-                <View style={{ gap: 8 }}>
-                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Primary Camera: Sony FX3 Cinema Line</Text>
-                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Backup Body: Sony A7 IV</Text>
-                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Lenses: 24-70mm f/2.8 GM II, 70-200mm f/2.8 GM</Text>
-                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Audio: DJI Mic 2 Wireless Transmitters</Text>
-                  <Text style={[styles.subModalText, { color: themeColors.textPrimary }]}>• Lighting: Godox V1S Speedlite + Softbox</Text>
                 </View>
               )}
 
@@ -857,13 +985,164 @@ export function AgentProfileView({ onBack, showBack = true }: AgentProfileViewPr
         </Modal>
       )}
 
+      {/* Dedicated Camera Kit & Gear Locker Modal */}
+      <GearLockerModal
+        visible={gearModalVisible}
+        onClose={() => setGearModalVisible(false)}
+        initialKit={gearKitData}
+        onSave={handleSaveGearKit}
+        isDark={isDark}
+      />
+
+      {/* Modal: Change Profile Picture (DP) */}
+      <Modal
+        visible={dpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDpModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDpModalVisible(false)} />
+          <View
+            style={[
+              styles.dpModalSheet,
+              {
+                backgroundColor: isDark ? '#1C222B' : '#FFFFFF',
+                borderColor: themeColors.border,
+              },
+            ]}
+          >
+            {/* Header */}
+            <View style={styles.dpModalHeader}>
+              <View>
+                <Text style={[styles.dpModalTitle, { color: themeColors.textPrimary }]}>
+                  Change Profile Picture
+                </Text>
+                <Text style={[styles.dpModalSubtitle, { color: themeColors.textSecondary }]}>
+                  Select photo from gallery, camera, or studio presets
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setDpModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={24} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current DP Large Preview */}
+            <View style={styles.dpPreviewContainer}>
+              <View style={[styles.dpPreviewRing, { borderColor: themeColors.accent }]}>
+                <Image source={{ uri: avatarUrl }} style={styles.dpPreviewImg} />
+              </View>
+              <Text style={[styles.dpPreviewName, { color: themeColors.textPrimary }]}>
+                {name}
+              </Text>
+              <Text style={[styles.dpPreviewRole, { color: themeColors.textMuted }]}>
+                Current Display Picture (DP)
+              </Text>
+            </View>
+
+            {/* Action Cards: Gallery & Camera */}
+            <View style={styles.dpActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.dpActionCard,
+                  {
+                    backgroundColor: isDark ? '#252D3A' : '#F8FAFC',
+                    borderColor: isDark ? '#374151' : '#E2E8F0',
+                  },
+                ]}
+                onPress={handlePickFromGallery}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.dpActionIconBox, { backgroundColor: 'rgba(255, 85, 0, 0.12)' }]}>
+                  <Ionicons name="images" size={22} color="#FF5500" />
+                </View>
+                <Text style={[styles.dpActionCardTitle, { color: themeColors.textPrimary }]}>
+                  Choose Photo
+                </Text>
+                <Text style={[styles.dpActionCardSub, { color: themeColors.textSecondary }]}>
+                  From Gallery
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.dpActionCard,
+                  {
+                    backgroundColor: isDark ? '#252D3A' : '#F8FAFC',
+                    borderColor: isDark ? '#374151' : '#E2E8F0',
+                  },
+                ]}
+                onPress={handleTakePhoto}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.dpActionIconBox, { backgroundColor: 'rgba(13, 148, 136, 0.12)' }]}>
+                  <Ionicons name="camera" size={22} color="#0D9488" />
+                </View>
+                <Text style={[styles.dpActionCardTitle, { color: themeColors.textPrimary }]}>
+                  Take Photo
+                </Text>
+                <Text style={[styles.dpActionCardSub, { color: themeColors.textSecondary }]}>
+                  Use Camera
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Studio Avatar Presets */}
+            <View style={styles.dpPresetsSection}>
+              <Text style={[styles.dpPresetsTitle, { color: themeColors.textPrimary }]}>
+                Studio Avatar Presets
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dpPresetsScroll}
+              >
+                {STUDIO_AVATAR_PRESETS.map(preset => {
+                  const isSelected = avatarUrl === preset.url;
+                  return (
+                    <TouchableOpacity
+                      key={preset.id}
+                      style={[
+                        styles.dpPresetItem,
+                        isSelected && { borderColor: '#FF5500', borderWidth: 2 },
+                      ]}
+                      onPress={() => handleSaveNewAvatar(preset.url)}
+                      activeOpacity={0.75}
+                    >
+                      <Image source={{ uri: preset.url }} style={styles.dpPresetImg} />
+                      {isSelected && (
+                        <View style={styles.dpPresetCheckmark}>
+                          <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                        </View>
+                      )}
+                      <Text
+                        style={[
+                          styles.dpPresetLabel,
+                          { color: isSelected ? '#FF5500' : themeColors.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {preset.label.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: View & Award Agent Achievements */}
       <AchievementsModal
         visible={achievementsModalVisible}
         onClose={() => setAchievementsModalVisible(false)}
         memberId={agentId}
         memberName={name}
-        memberAvatar="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
+        memberAvatar={avatarUrl}
         memberRole={session?.agentProfession === 'BOTH' ? 'Lead Photographer & Cinematographer' : 'Lead Photographer'}
       />
     </View>
@@ -878,7 +1157,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingLeft: 20,
+    paddingRight: 64,
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
@@ -917,6 +1197,25 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     borderWidth: 2,
     overflow: 'hidden',
+  },
+  dpCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FF5500',
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 11,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
   },
   dpAchievementPin: {
     position: 'absolute',
@@ -1162,5 +1461,131 @@ const styles = StyleSheet.create({
   subModalText: {
     fontSize: 14,
     lineHeight: 22,
+  },
+  dpModalSheet: {
+    width: '92%',
+    maxWidth: 420,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  dpModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  dpModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  dpModalSubtitle: {
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  dpPreviewContainer: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dpPreviewRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    overflow: 'hidden',
+    shadowColor: '#FF5500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  dpPreviewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  dpPreviewName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  dpPreviewRole: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  dpActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+  },
+  dpActionCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    alignItems: 'center',
+  },
+  dpActionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  dpActionCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  dpActionCardSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  dpPresetsSection: {
+    marginTop: 18,
+  },
+  dpPresetsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  dpPresetsScroll: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  dpPresetItem: {
+    alignItems: 'center',
+    width: 58,
+    padding: 3,
+    borderRadius: 30,
+    position: 'relative',
+  },
+  dpPresetImg: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  dpPresetCheckmark: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF5500',
+    borderColor: '#FFFFFF',
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dpPresetLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

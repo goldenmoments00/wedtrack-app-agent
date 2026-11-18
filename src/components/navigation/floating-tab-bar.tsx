@@ -424,8 +424,9 @@ export function FloatingTabBar({
         animationType="fade"
         onRequestClose={() => setHubVisible(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setHubVisible(false)}>
-          <Pressable style={styles.hubSheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setHubVisible(false)} />
+          <View style={styles.hubSheet}>
             <View style={styles.hubHeader}>
               <View>
                 <Text style={styles.hubTitle}>Staff Persona Switcher</Text>
@@ -517,8 +518,8 @@ export function FloatingTabBar({
                 {isEditor && <Ionicons name="checkmark-circle" size={22} color={vibrantOrange} />}
               </TouchableOpacity>
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
