@@ -30,11 +30,33 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
 # local env files
 .env*.local
+.env
 
-# scratch
+# scratch & temporary files
 scratch/
+*.log
+*.tmp
+*.bak
+*~
+
+# Gemini & Agent cache
+.gemini/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # typescript
 *.tsbuildinfo
